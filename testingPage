@@ -1,0 +1,16 @@
+Working Area: (before add .)
+git clean -n -d: dry run (preview)(untracked files and directories, which are going to be deleted from working area)
+git clean -f -d: forcefully delete the untracked files and directories, which are in working area
+
+
+
+Staging Area: (before commit)
+git restore
+git restore --stagged
+
+
+Local Repo: (after commit) && (before push)
+git reset --soft HEAD~1: commit will be delted, but files are staged.
+git reset --hard HEAD~1: everything will be deleted till last commit.
+
+
