@@ -1,0 +1,22 @@
+To delete untracked files and directories from Working Area
+git clean -n -d
+git clean -f -d
+
+After modidication:
+git status
+
+git restore <fileName> to dischard the changes before git add.
+
+
+git add .
+git restore --staged <fileName> to unstage, but changes are present in Working Area as untracked file.
+
+
+git commit -m ""
+git reset --soft HEAD~1 delete the last comit, but files are --staged
+git reset   HEAD~1 uncomit and unstage, modifications are there in Working Area
+git reset --hard HEAD~1 uncomit, unstage, clear modifications in Working Area also (clear till last commit)
+
+
+git push origin main:main
+
