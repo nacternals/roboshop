@@ -1,2 +1,2 @@
 #! /bin/bash
-echo ""[Dhello world....:
+echo "hello world...."
