@@ -1,2 +1,3 @@
-#! /bin/bash
-echo "hello world...."
+#!/user/bin/env bash
+echo "Hello world...."
+echo "File Name: " $0
