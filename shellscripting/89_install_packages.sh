@@ -49,10 +49,16 @@ else
 	echo "Sufficient root access is present; please proceed further to install the required packages."
 	yum -q list installed nginx &>/dev/null
 	if (($? != 0)); then
-		yum install nginx -y
-		if (($? != 0)); then
+		echo "Nginx is not yet installed; now, installing it...."
+		if dnf -y install nginx &> /dev/null; then
 			echo "Nginx has been installed successfully."
+		else
+			echo "Nginx installation failed."
 		fi
+		# yum install nginx -y
+		# if (($? == 0)); then
+		# 	echo "Nginx has been installed successfully."
+		# fi
 
 	else
 		echo "Nginx has already been installed."
