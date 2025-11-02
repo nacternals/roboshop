@@ -25,7 +25,7 @@ if (($userID != 0)); then
 	exit 1
 else
 	echo "Sufficient root access is present; please proceed further to install the required packages."
-	yum -q list installed git
+	yum -q list installed git &> /dev/null
 	if (($? != 0)); then
 		yum install git -y
 		if(($? !=0)); then
