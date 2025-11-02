@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # ---------- Config ----------
-LOG_DIR="${LOG_DIR:-/app/logs}" # override via env if needed
-RETENTION_DAYS="${RETENTION_DAYS:-14}"# days to keep
+LOG_DIR="${LOG_DIR:-/app/logs}"                     # override via env if needed
+RETENTION_DAYS="${RETENTION_DAYS:-14}"              # days to keep
 PATTERN="${PATTERN:-*.log}"                         # which files to target
 DRY_RUN="${DRY_RUN:-false}"                         # true|false — preview only
 CLEANUP_LOG="${CLEANUP_LOG:-/app/logs/cleanup.log}" # where to record runs
@@ -47,6 +47,7 @@ log_info "Host: $($HOSTNAME_BIN) | Dir: $LOG_DIR | Keep: ${RETENTION_DAYS}d | Pa
 # -mtime +N: strictly older than N days
 # -print: always show what we matched (goes to CLEANUP_LOG via tee)
 # -delete: only if not dry-run
+
 if [[ "$DRY_RUN" == "true" ]]; then
 	$FIND_BIN "$LOG_DIR" -type f -name "$PATTERN" -mtime +"$RETENTION_DAYS" -print |
 		$TEE_BIN -a "$CLEANUP_LOG"
@@ -56,6 +57,3 @@ else
 		$TEE_BIN -a "$CLEANUP_LOG"
 	log_info "Deletion complete." | $TEE_BIN -a "$CLEANUP_LOG"
 fi
-
-
-
