@@ -12,7 +12,7 @@ echo -e "This script demonstrates how to install packages (git vim wget net-tool
 
 #Installing git
 echo -e "\nInstalling git"
-echo -e "\nChecking whether git is already installed or not"
+echo "Checking whether git is already installed or not"
 
 # 1. Is current user is root. If not, change to root suer
 # If yes, proceed to further
@@ -24,7 +24,7 @@ if (($userID != 0)); then
 	echo "Insufficient access; please change to root access"
 	exit 1
 else
-	echo "Sufficient root access is present; please proceed further to install the required packages."
+	echo "Sufficient root access is present; proceeding further to install the requested packages."
 	yum -q list installed git &>/dev/null
 	if (($? != 0)); then
 		yum install git -y
@@ -39,14 +39,14 @@ fi
 
 #Installing nginx
 echo -e "\nInstalling nginx"
-echo -e "\nChecking whether nginx is already installed or not"
+echo "Checking whether nginx is already installed or not"
 
 userID=$(id -u)
 if (($userID != 0)); then
 	echo "Insufficient access; please change to root access"
 	exit 1
 else
-	echo "Sufficient root access is present; please proceed further to install the required packages."
+	echo "Sufficient root access is present; proceeding further to install the requested packages."
 	yum -q list installed nginx &>/dev/null
 	if (($? != 0)); then
 		echo "Nginx is not yet installed; now, installing it...."
