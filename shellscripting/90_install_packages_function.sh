@@ -54,7 +54,7 @@ installRequiredPackage() {
 main() {
   echo -e "\nThis script demonstrates how to install packages with the help of functions:"
 
-  # Read package name from user (no default)
+  # Read package name from user
   local package=""
   while [[ -z "${package:-}" ]]; do
     read -rp "Enter the package to install: " package
