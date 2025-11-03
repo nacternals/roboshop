@@ -15,7 +15,7 @@ FROM_NAME="Roboshop Resource Monitor" # Friendly sender name
 
 # Gmail (use an App Password; remove spaces if Google shows them with spaces)
 GMAIL_USER="srinivas.jtm@gmail.com"
-GMAIL_APP_PASS="lapjocuionjmdqgi" # <-- 16-char Gmail App Password
+GMAIL_APP_PASS="testing" # <-- 16-char Gmail App Password
 
 # ---------- Sanity checks ----------
 for bin in awk grep sed head ps free; do
