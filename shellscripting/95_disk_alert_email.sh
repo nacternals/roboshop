@@ -7,12 +7,12 @@
 set -euo pipefail
 
 # ---- Config (env vars with safe defaults) ----
-MOUNT_POINT="${MOUNT_POINT:-/}"                		# Which filesystem to watch (default /)
-THRESHOLD="${THRESHOLD:-10}"                   		# Percentage used that triggers alert
-TO_EMAIL="${TO_EMAIL:-srinivas.jtm@gmail.com}" 		# Recipient
-FROM_NAME="${FROM_NAME:-Disk Monitor}"         		# Friendly name for From:
-GMAIL_USER="${GMAIL_USER:-srinivas.jtm@gmail.com}" 	# Your Gmail address
-GMAIL_APP_PASS="${GMAIL_APP_PASS:-lapjocuionjmdqgi}"           		# 16-char App Password
+MOUNT_POINT="${MOUNT_POINT:-/}"                      # Which filesystem to watch (default /)
+THRESHOLD="${THRESHOLD:-10}"                         # Percentage used that triggers alert
+TO_EMAIL="${TO_EMAIL:-srinivas.jtm@gmail.com}"       # Recipient
+FROM_NAME="${FROM_NAME:-Disk Monitor}"               # Friendly name for From:
+GMAIL_USER="${GMAIL_USER:-srinivas.jtm@gmail.com}"   # Your Gmail address
+GMAIL_APP_PASS="${GMAIL_APP_PASS:-lapjocuionjmdqgi}" # 16-char App Password
 
 # ---- Sanity checks ----
 if ! command -v curl >/dev/null 2>&1; then
@@ -72,13 +72,41 @@ EOF
 
 # ---- Send via Gmail SMTP with curl ----
 # Option A: Implicit TLS 465
-SMTP_URL="smtps://smtp.gmail.com:465"
+SMTP_URL="smtp://smtp.gmail.com:587"
 # Option B (uncomment to use STARTTLS 587 instead):
 # SMTP_URL="smtp://smtp.gmail.com:587"
 # and add: --ssl-reqd
 
 # SMTP requires CRLF line endings. We'll build the MIME message accordingly.
 # If you want HTML, set Content-Type: text/html; charset=UTF-8 and adjust BODY.
+# MAIL_TMP="$(mktemp)"
+# {
+# 	printf 'From: %s <%s>\r\n' "$FROM_NAME" "$GMAIL_USER"
+# 	printf 'To: <%s>\r\n' "$TO_EMAIL"
+# 	printf 'Subject: %s\r\n' "$SUBJECT"
+# 	printf 'Content-Type: text/plain; charset=UTF-8\r\n'
+# 	printf '\r\n'
+# 	# Convert LF to CRLF on the fly:
+# 	# shellcheck disable=SC2001
+# 	printf '%s' "$BODY" | sed 's/$/\r/'
+# } >"$MAIL_TMP"
+
+# set +e
+# curl --silent --show-error --fail \
+# 	--url "$SMTP_URL" \
+# 	--mail-from "$GMAIL_USER" \
+# 	--mail-rcpt "$TO_EMAIL" \
+# 	--user "$GMAIL_USER:$GMAIL_APP_PASS" \
+# 	--upload-file "$MAIL_TMP"
+# CURL_RC=$?
+# set -e
+# rm -f "$MAIL_TMP"
+
+# if ((CURL_RC != 0)); then
+# 	echo "ERROR: Failed to send alert email via Gmail (curl exit $CURL_RC)" >&2
+# 	exit $CURL_RC
+# fi
+
 MAIL_TMP="$(mktemp)"
 {
 	printf 'From: %s <%s>\r\n' "$FROM_NAME" "$GMAIL_USER"
@@ -86,8 +114,6 @@ MAIL_TMP="$(mktemp)"
 	printf 'Subject: %s\r\n' "$SUBJECT"
 	printf 'Content-Type: text/plain; charset=UTF-8\r\n'
 	printf '\r\n'
-	# Convert LF to CRLF on the fly:
-	# shellcheck disable=SC2001
 	printf '%s' "$BODY" | sed 's/$/\r/'
 } >"$MAIL_TMP"
 
@@ -97,6 +123,7 @@ curl --silent --show-error --fail \
 	--mail-from "$GMAIL_USER" \
 	--mail-rcpt "$TO_EMAIL" \
 	--user "$GMAIL_USER:$GMAIL_APP_PASS" \
+	--ssl-reqd \
 	--upload-file "$MAIL_TMP"
 CURL_RC=$?
 set -e
