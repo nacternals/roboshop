@@ -6,8 +6,8 @@
 set -euo pipefail
 
 # ---------- Config (hard-coded) ----------
-CPU_THRESHOLD="85" # Trigger when total CPU usage % >= this
-MEM_THRESHOLD="90" # Trigger when memory usage % >= this
+CPU_THRESHOLD="10" # Trigger when total CPU usage % >= this
+MEM_THRESHOLD="10" # Trigger when memory usage % >= this
 SAMPLE_SECS="2"    # CPU sample window (seconds)
 
 TO_EMAIL="sriniva.jtm@gmail.com"      # Recipient
