@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+I am editing from both branches....
+
+I do not know...
+
+Lets see for the last time
+
+Finally, I was able to reproduce Merge Conflict...
