@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 
-#Prepare this script as like as mongodb.sh like colors, functions, comments, logs, script source directory....etc
-#This script will create a Catalogue Microservice
-#1.
+# This script will create and configure the Catalogue microservice.
+# It:
+#   - Installs required utility packages
+#   - Ensures NodeJS (>= 18) is installed
+#   - Creates roboshop application user and /app directory
+#   - Downloads and sets up the catalogue application code
+#   - Creates and starts the catalogue SystemD service
 #
-#
+# Logging, colors, helper functions, and directory handling are similar to mongodb.sh.
 
 set -euo pipefail
 
@@ -17,15 +21,16 @@ BLUE="\e[34m"
 CYAN="\e[36m"
 RESET="\e[0m"
 
+
 # ---------- Config ----------
 timestamp="$(date +"%F-%H-%M-%S")"                          # Full timestamp of this run
 logs_directory="/app/logs"                                  # Central log directory
-script_name="$(basename "$0")"                              # e.g. catalogue.sh
-script_base="${script_name%.*}"                             # e.g. catalogue
+script_name="$(basename "$0")"                              # e.g. 04_catalogue.sh
+script_base="${script_name%.*}"                             # e.g. 04_catalogue
 log_file="${logs_directory}/${script_base}-$(date +%F).log" # one log file per day
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"  # Directory where script lives
-echo "source directory is : ${SCRIPT_DIR}"
-UTIL_PKG_FILE="${SCRIPT_DIR}/05_catalogueutilpackages.txt"     # File containing utility package list (one per line)
+UTIL_PKG_FILE="${SCRIPT_DIR}/05_catalogueutilpackages.txt"  # File containing utility package list (one per line)
+CATALOGUE_SERVICE_FILE="${SCRIPT_DIR}/06_catalogue.service" # SystemD service template
 
 # ---------- Helper: validate step ----------
 # Usage pattern:
@@ -65,7 +70,7 @@ isItRootUser() {
 }
 
 # ---------- Utility package installer ----------
-# Reads package names from catalogueutilpackages.txt (one per line) and installs them.
+# Reads package names from 05_catalogueutilpackages.txt (one per line) and installs them.
 installUtilPackages() {
 	echo -e "${CYAN}Checking utility package list file: ${UTIL_PKG_FILE}${RESET}"
 
@@ -103,15 +108,15 @@ installUtilPackages() {
 	echo -e "${GREEN}All requested utility packages processed successfully.${RESET}"
 }
 
+# ---------- NodeJS installation (handles module and non-module OSes) ----------
 installNodeJS() {
-	# Step 1: Check if NodeJS is already installed
 	echo -e "${CYAN}Checking if NodeJS is already installed...${RESET}"
 
+	# Step 1: Check if NodeJS is already installed
 	if command -v node >/dev/null 2>&1; then
-		# Get current Node version (e.g. v18.19.0 → 18)
 		local node_version
-		node_version="$(node -v | sed 's/^v//')" # remove leading 'v'
-		local node_major="${node_version%%.*}"   # take first part before '.'
+		node_version="$(node -v | sed 's/^v//')" # remove leading 'v', e.g. v18.19.0 -> 18.19.0
+		local node_major="${node_version%%.*}"   # take part before first dot, e.g. 18
 
 		echo -e "${YELLOW}Found NodeJS version: ${node_version}${RESET}"
 
@@ -119,42 +124,62 @@ installNodeJS() {
 			echo -e "${GREEN}NodeJS version is already >= 18. Skipping installation.${RESET}"
 			return
 		else
-			echo -e "${YELLOW}NodeJS version is < 18. Will upgrade via YUM module.${RESET}"
+			echo -e "${YELLOW}NodeJS version is < 18. Will try to upgrade.${RESET}"
 		fi
 	else
 		echo -e "${YELLOW}NodeJS is not installed. Proceeding with fresh installation...${RESET}"
 	fi
 
-	# Step 2: List available NodeJS modules (to see what streams are present)
-	echo -e "${CYAN}Checking available NodeJS module streams...${RESET}"
-	${SUDO:-} yum module list nodejs
-	validateStep $? \
-		"Successfully listed NodeJS module streams." \
-		"Failed to list NodeJS module streams."
+	# Step 2: Try module-based flow (CentOS/RHEL style)
+	echo -e "${CYAN}Checking if 'nodejs' module streams are available...${RESET}"
+	if ${SUDO:-} yum module list nodejs >/dev/null 2>&1; then
+		echo -e "${CYAN}NodeJS module stream detected. Using module-based installation...${RESET}"
 
-	# Step 3: Disable existing NodeJS module (usually default is nodejs 10 on CentOS 8)
-	echo -e "${CYAN}Disabling existing NodeJS module stream (if any, e.g., nodejs 10)...${RESET}"
-	${SUDO:-} yum module disable -y nodejs
-	validateStep $? \
-		"Disabled existing NodeJS module stream successfully." \
-		"Failed to disable existing NodeJS module stream."
+		echo -e "${CYAN}Disabling existing NodeJS module stream (if any)...${RESET}"
+		${SUDO:-} yum module disable -y nodejs
+		validateStep $? \
+			"Disabled existing NodeJS module stream successfully." \
+			"Failed to disable existing NodeJS module stream."
 
-	# Step 4: Enable NodeJS 18 module stream
-	# NOTE: This assumes nodejs:18 is available in your OS module repo
-	echo -e "${CYAN}Enabling NodeJS 18 module stream (nodejs:18)...${RESET}"
-	${SUDO:-} yum module enable -y nodejs:18
-	validateStep $? \
-		"Enabled NodeJS 18 module stream (nodejs:18) successfully." \
-		"Failed to enable NodeJS 18 module stream (nodejs:18)."
+		echo -e "${CYAN}Enabling NodeJS 18 module stream (nodejs:18)...${RESET}"
+		${SUDO:-} yum module enable -y nodejs:18
+		validateStep $? \
+			"Enabled NodeJS 18 module stream (nodejs:18) successfully." \
+			"Failed to enable NodeJS 18 module stream (nodejs:18)."
 
-	# Step 5: Install NodeJS from the enabled module stream
-	echo -e "${CYAN}Installing NodeJS from the enabled module stream...${RESET}"
-	${SUDO:-} yum install -y nodejs
-	validateStep $? \
-		"NodeJS installed successfully from module stream." \
-		"Failed to install NodeJS from module stream."
+		echo -e "${CYAN}Installing NodeJS from the enabled module stream...${RESET}"
+		${SUDO:-} yum install -y nodejs
+		validateStep $? \
+			"NodeJS installed successfully from module stream." \
+			"Failed to install NodeJS from module stream."
+	else
+		# Step 3: Fallback path (Amazon Linux 2023, etc. without modules)
+		echo -e "${YELLOW}No 'nodejs' module streams found. Falling back to plain package installation.${RESET}"
 
-	# Step 6: Final verification of NodeJS version after installation
+		# Try candidate package names in order
+		local candidates=(nodejs18 nodejs nodejs16)
+		local installed=false
+
+		for pkg in "${candidates[@]}"; do
+			echo -e "${CYAN}Checking availability of package: ${pkg}${RESET}"
+			if ${SUDO:-} yum list available "${pkg}" >/dev/null 2>&1; then
+				echo -e "${CYAN}Installing NodeJS package: ${pkg}${RESET}"
+				${SUDO:-} yum install -y "${pkg}"
+				validateStep $? \
+					"NodeJS installed successfully via package '${pkg}'." \
+					"Failed to install NodeJS package '${pkg}'."
+				installed=true
+				break
+			fi
+		done
+
+		if [[ "${installed}" == false ]]; then
+			echo -e "${RED}ERROR: Could not find a suitable NodeJS package (tried: ${candidates[*]}).${RESET}"
+			exit 1
+		fi
+	fi
+
+	# Step 4: Final verification of NodeJS installation and version
 	echo -e "${CYAN}Verifying NodeJS installation and version...${RESET}"
 	if command -v node >/dev/null 2>&1; then
 		local final_node_version
@@ -166,12 +191,120 @@ installNodeJS() {
 		if ((final_node_major >= 18)); then
 			echo -e "${GREEN}NodeJS final version is >= 18. Installation/upgrade successful.${RESET}"
 		else
-			echo -e "${YELLOW}NodeJS final version is < 18, which is unexpected after enabling nodejs:18.${RESET}"
+			echo -e "${YELLOW}NodeJS final version is < 18. Installation succeeded, but version is lower than expected.${RESET}"
 		fi
 	else
-		echo -e "${RED}NodeJS command not found even after installation. Please check YUM logs / repository configuration.${RESET}"
+		echo -e "${RED}NodeJS command not found even after installation. Please check YUM/DNF logs and repository configuration.${RESET}"
 		exit 1
 	fi
+}
+
+# ---------- Catalogue application setup ----------
+installCatalogue() {
+	echo -e "${CYAN}Setting up Catalogue application...${RESET}"
+
+	# 1) Ensure roboshop user exists
+	echo -e "${CYAN}Checking if 'roboshop' user exists...${RESET}"
+	if id roboshop >/dev/null 2>&1; then
+		echo -e "${YELLOW}User 'roboshop' already exists. Skipping user creation.${RESET}"
+	else
+		echo -e "${CYAN}Creating application user 'roboshop'...${RESET}"
+		${SUDO:-} useradd roboshop
+		validateStep $? \
+			"Application user 'roboshop' created successfully." \
+			"Failed to create application user 'roboshop'."
+	fi
+
+	# 2) Ensure /app directory exists
+	echo -e "${CYAN}Checking /app directory...${RESET}"
+	if [[ -d /app ]]; then
+		echo -e "${YELLOW}/app directory already exists.${RESET}"
+	else
+		echo -e "${CYAN}/app directory not found. Creating /app...${RESET}"
+		${SUDO:-} mkdir -p /app
+		validateStep $? \
+			"/app directory created successfully." \
+			"Failed to create /app directory."
+	fi
+
+	# 3) Download the catalogue code
+	echo -e "${CYAN}Downloading catalogue application code to /tmp/catalogue.zip...${RESET}"
+	${SUDO:-} curl -s -L -o /tmp/catalogue.zip "https://roboshop-builds.s3.amazonaws.com/catalogue.zip"
+	validateStep $? \
+		"Catalogue application zip downloaded successfully." \
+		"Failed to download catalogue application zip."
+
+	# 4) Clean existing app content (optional but common in Roboshop flows)
+	# echo -e "${CYAN}Cleaning existing contents under /app...${RESET}"
+	# ${SUDO:-} rm -rf /app/*
+	# validateStep $? \
+	# 	"Existing contents under /app cleaned successfully." \
+	# 	"Failed to clean existing contents under /app."
+
+	# 5) Unzip into /app
+	echo -e "${CYAN}Unzipping catalogue application into /app...${RESET}"
+	${SUDO:-} unzip -o /tmp/catalogue.zip -d /app >/dev/null
+	validateStep $? \
+		"Catalogue application unzipped into /app successfully." \
+		"Failed to unzip catalogue application into /app."
+
+	# 6) Set ownership to roboshop user
+	echo -e "${CYAN}Setting ownership of /app to user 'roboshop'...${RESET}"
+	${SUDO:-} chown -R roboshop:roboshop /app
+	validateStep $? \
+		"Ownership of /app set to roboshop successfully." \
+		"Failed to set ownership of /app to roboshop."
+
+	# 7) Install NodeJS dependencies as roboshop user
+	echo -e "${CYAN}Installing NodeJS dependencies (npm install) as 'roboshop' user...${RESET}"
+	${SUDO:-} su - roboshop -s /bin/bash -c "cd /app && npm install" >/dev/null
+	validateStep $? \
+		"NodeJS dependencies installed successfully (npm install)." \
+		"Failed to install NodeJS dependencies (npm install)."
+
+	echo -e "${GREEN}Catalogue application setup completed.${RESET}"
+}
+
+# ---------- SystemD service setup for Catalogue ----------
+createCatalogueSystemDService() {
+	echo -e "${CYAN}Checking Catalogue SystemD service...${RESET}"
+
+	if [[ -f /etc/systemd/system/catalogue.service ]]; then
+		echo -e "${YELLOW}Catalogue SystemD service already exists, skipping creation....${RESET}"
+		return
+	fi
+
+	echo -e "${CYAN}Catalogue SystemD service not found. Creating Catalogue SystemD service....${RESET}"
+	echo "Catalogue service file location: ${CATALOGUE_SERVICE_FILE}"
+
+	# Copy the service unit file
+	${SUDO:-} cp "${CATALOGUE_SERVICE_FILE}" /etc/systemd/system/catalogue.service
+	validateStep $? \
+		"Catalogue SystemD service file has been created at /etc/systemd/system/catalogue.service." \
+		"Failed to create Catalogue SystemD service file. Copy operation failed."
+
+	# Reload systemd daemon
+	echo -e "${CYAN}Reloading SystemD daemon...${RESET}"
+	${SUDO:-} systemctl daemon-reload
+	validateStep $? \
+		"SystemD daemon reloaded successfully." \
+		"Failed to reload SystemD daemon."
+
+	# Enable catalogue service
+	echo -e "${CYAN}Enabling catalogue service to start on boot...${RESET}"
+	${SUDO:-} systemctl enable catalogue
+	validateStep $? \
+		"Catalogue service enabled to start on boot." \
+		"Failed to enable catalogue service."
+
+	# Start catalogue service
+	echo -e "${CYAN}Starting catalogue service...${RESET}"
+	${SUDO:-} systemctl start catalogue
+	validateStep $? \
+		"Catalogue service started successfully." \
+		"Failed to start catalogue service."
+
+	echo -e "${GREEN}Catalogue SystemD service created and started successfully.${RESET}"
 }
 
 # ---------- Main ----------
@@ -182,9 +315,10 @@ main() {
 	# Send everything (stdout + stderr) to log file from here on
 	exec >>"${log_file}" 2>&1
 
-	echo -e "${BLUE}Catalogue script execution has been started @ ${timestamp}${RESET}"
+	echo -e "\n${BLUE}Catalogue script execution has been started @ ${timestamp}${RESET}"
 	echo "Log Directory: ${logs_directory}"
 	echo "Log File Location and Name: ${log_file}"
+	echo "Script source directory: ${SCRIPT_DIR}"
 
 	echo -e "\n${CYAN}Calling isItRootUser() to validate the user...${RESET}"
 	isItRootUser
@@ -195,7 +329,13 @@ main() {
 	echo -e "\n${CYAN}Calling installNodeJS()...${RESET}"
 	installNodeJS
 
-	echo -e "\n${GREEN}Catalogue setup script: Still work-in-progress....${RESET}"
+	echo -e "\n${CYAN}Calling installCatalogue()...${RESET}"
+	installCatalogue
+
+	echo -e "\n${CYAN}Calling createCatalogueSystemDService()...${RESET}"
+	createCatalogueSystemDService
+
+	echo -e "\n${GREEN}Catalogue setup script completed.${RESET}"
 }
 
 main "$@"

@@ -19,7 +19,7 @@ script_base="${script_name%.*}"    # e.g. mongodb
 # log_file="${logs_directory}/${script_base}-${timestamp}.log"    # one log file per execution
 log_file="${logs_directory}/${script_base}-$(date +%F).log" # one log file per day
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"  # Directory where script lives
-UTIL_PKG_FILE="${SCRIPT_DIR}/mongodbutilpackages.txt" # File containing utility package list (one per line)
+UTIL_PKG_FILE="${SCRIPT_DIR}/03_mongodbutilpackages.txt" # File containing utility package list (one per line)
 
 # ---------- Helper: validate step ----------
 # Usage pattern:
