@@ -9,6 +9,7 @@ script_name="$(basename "$0")"                               # e.g. mongodb.sh
 script_base="${script_name%.*}"                              # e.g. mongodb
 log_file="${logs_directory}/${script_base}-${timestamp}.log" #one log file per execution
 # log_file="${logs_directory}/${script_base}-$(date +%F).log" #one log file per day
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" # Directory where script lives (if you haven't added this already)
 
 # ---------- Root / sudo handling ----------
 isItRootUser() {
@@ -28,8 +29,16 @@ isItRootUser() {
 }
 
 createMongoRepo() {
-	echo "Creating MongoDB Repo"
-	cp roboshop_scripts\mongodb.repo /etc/yum.repos.d/mongo.repo
+    echo "Checking MongoDB repo..."
+
+    if [[ -f /etc/yum.repos.d/mongo.repo ]]; then
+        echo "MongoDB repo already exists, skipping."
+    else
+        echo "MongoDB repo not found. Creating MongoDB repo..."
+		echo "MongoDB Repo location: ${SCRIPT_DIR}/mongodb.repo"
+        ${SUDO:-} cp "${SCRIPT_DIR}/mongodb.repo" /etc/yum.repos.d/mongo.repo
+        echo "MongoDB repo created at /etc/yum.repos.d/mongo.repo"
+    fi
 }
 
 main() {
