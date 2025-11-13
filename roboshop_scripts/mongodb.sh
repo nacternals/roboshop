@@ -28,13 +28,13 @@ main() {
 	mkdir -p "${logs_directory}"
 
 	# Send everything (stdout + stderr) to log file from here on
-	# exec >>"${log_file}" 2>&1
+	exec >>"${log_file}" 2>&1
 
 	echo "MongoDB script execution has been started @ ${timestamp}"
 	echo "Log Directory: ${logs_directory}"
 	echo "MongoDB Log File Name: ${log_file}"
 
-	isItRootUser >>"${log_file}" 2>&1 
+	isItRootUser 
 
 	# your MongoDB setup steps here...
 }
