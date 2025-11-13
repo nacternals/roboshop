@@ -185,7 +185,7 @@ main() {
 
 	echo -e "${BLUE}MongoDB script execution has been started @ ${timestamp}${RESET}"
 	echo "Log Directory: ${logs_directory}"
-	echo "MongoDB Log File Name: ${log_file}"
+	echo "Log File Location and Name: ${log_file}"
 
 	echo -e "\n${CYAN}Calling isItRootUser() to validate the user...${RESET}"
 	isItRootUser
