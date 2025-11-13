@@ -12,6 +12,8 @@ log_file="${logs_directory}/${script_base}-${timestamp}.log" #one log file per e
 
 # ---------- Root / sudo handling ----------
 isItRootUser() {
+		echo "Checking Root user or Not ?????????"
+
 	if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
 		if command -v sudo >>$log_file 2>&1; then
 			SUDO="sudo"
@@ -25,6 +27,11 @@ isItRootUser() {
 	fi
 }
 
+createMongoRepo() {
+	echo "Creating MongoDB Repo"
+	cp roboshop_scripts\mongodb.repo /etc/yum.repos.d/mongo.repo
+}
+
 main() {
 	# Ensure log dir exists
 	mkdir -p "${logs_directory}"
@@ -36,7 +43,11 @@ main() {
 	echo "Log Directory: ${logs_directory}"
 	echo "MongoDB Log File Name: ${log_file}"
 
+	echo "Calling isItRootUser function to validate the user....."
 	isItRootUser
+
+	echo "Calling createMongoRepo functoin....."
+	createMongoRepo
 
 	# your MongoDB setup steps here...
 }
