@@ -13,11 +13,11 @@ RESET="\e[0m"
 # ---------- Config ----------
 timestamp="$(date +"%F-%H-%M-%S")"
 logs_directory="/app/logs"
-script_name="$(basename "$0")"                               # e.g. mongodb.sh
-script_base="${script_name%.*}"                              # e.g. mongodb
-log_file="${logs_directory}/${script_base}-${timestamp}.log" # one log file per execution
-# log_file="${logs_directory}/${script_base}-$(date +%F).log" # one log file per day
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" # Directory where script lives
+script_name="$(basename "$0")"  # e.g. mongodb.sh
+script_base="${script_name%.*}" # e.g. mongodb
+# log_file="${logs_directory}/${script_base}-${timestamp}.log" # one log file per execution
+log_file="${logs_directory}/${script_base}-$(date +%F).log" # one log file per day
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"  # Directory where script lives
 
 # ---------- Helper: validate step ----------
 # Usage:
