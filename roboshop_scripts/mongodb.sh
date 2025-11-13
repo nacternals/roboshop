@@ -72,6 +72,72 @@ createMongoRepo() {
 		"Failed to create MongoDB repo. Copy operation failed."
 }
 
+installMongoDB() {
+	#first check whether mongodb is already installed or not
+	#If it is already installed, skip the installation
+	#If it is not yet installed:
+	#instal mongodb
+	#enable mongodb
+	#start the service
+	#Update listen address from 127.0.0.1 to 0.0.0.0 in /etc/mongod.conf
+	#restart the service
+
+	echo -e "${CYAN}Checking if MongoDB is already installed...${RESET}"
+
+	# Check if mongod command exists
+	if command -v mongod >/dev/null 2>&1; then
+		echo -e "${YELLOW}MongoDB is already installed. Skipping installation.${RESET}"
+		return
+	fi
+
+	echo -e "${CYAN}MongoDB not found. Proceeding with installation...${RESET}"
+
+	# Install MongoDB (expects repo already created)
+	${SUDO:-} yum install -y mongodb-org
+	validateStep $? \
+		"MongoDB packages installed successfully." \
+		"Failed to install MongoDB packages."
+
+	# Enable MongoDB service
+	echo -e "${CYAN}Enabling MongoDB service (mongod)...${RESET}"
+	${SUDO:-} systemctl enable mongod
+	validateStep $? \
+		"MongoDB service enabled to start on boot." \
+		"Failed to enable MongoDB service."
+
+	# Start MongoDB service
+	echo -e "${CYAN}Starting MongoDB service (mongod)...${RESET}"
+	${SUDO:-} systemctl start mongod
+	validateStep $? \
+		"MongoDB service started successfully." \
+		"Failed to start MongoDB service."
+
+	# Update bind IP in /etc/mongod.conf from 127.0.0.1 to 0.0.0.0
+	echo -e "${CYAN}Updating MongoDB bind IP in /etc/mongod.conf (127.0.0.1 → 0.0.0.0)...${RESET}"
+
+	if [[ -f /etc/mongod.conf ]]; then
+		if grep -q "127.0.0.1" /etc/mongod.conf; then
+			${SUDO:-} sed -i 's/127\.0\.0\.1/0.0.0.0/g' /etc/mongod.conf
+			validateStep $? \
+				"Updated bind IP in /etc/mongod.conf to 0.0.0.0." \
+				"Failed to update bind IP in /etc/mongod.conf."
+
+			echo -e "${CYAN}Restarting MongoDB service after config change...${RESET}"
+			${SUDO:-} systemctl restart mongod
+			validateStep $? \
+				"MongoDB service restarted successfully after bind IP config change." \
+				"Failed to restart MongoDB service after bind IP config change."
+		else
+			echo -e "${YELLOW}No '127.0.0.1' entry found in /etc/mongod.conf. Skipping bind IP update.${RESET}"
+		fi
+	else
+		echo -e "${RED}WARNING: /etc/mongod.conf not found. Skipping bind IP update.${RESET}"
+	fi
+
+	echo -e "${GREEN}MongoDB installation and basic configuration completed.${RESET}"
+
+}
+
 main() {
 	# Ensure log dir exists
 	mkdir -p "${logs_directory}"
@@ -88,6 +154,9 @@ main() {
 
 	echo -e "\n${CYAN}Calling createMongoRepo()...${RESET}"
 	createMongoRepo
+
+	echo -e "\n${CYAN}Calling installMongoDB()...${RESET}"
+	installMongoDB
 
 	# your MongoDB setup steps here...
 }
