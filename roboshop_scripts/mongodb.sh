@@ -12,7 +12,7 @@ log_file="${logs_directory}/${script_base}-${timestamp}.log"
 # ---------- Root / sudo handling ----------
 isItRootUser() {
 	if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
-		if command -v sudo >/dev/null 2>&1; then
+		if command -v sudo >>$log_file 2>&1; then
 			SUDO="sudo"
 		else
 			echo "ERROR: Insufficient privileges. Run as root or install sudo."
