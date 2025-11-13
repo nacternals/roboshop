@@ -5,9 +5,10 @@ set -euo pipefail
 # ---------- Config ----------
 timestamp=$(date +"%F-%H-%M-%S")
 logs_directory="/app/logs"
-script_name="$(basename "$0")"   # e.g. mongodb.sh
-script_base="${script_name%.*}"  # e.g. mongodb
-log_file="${logs_directory}/${script_base}-${timestamp}.log"
+script_name="$(basename "$0")"                               # e.g. mongodb.sh
+script_base="${script_name%.*}"                              # e.g. mongodb
+log_file="${logs_directory}/${script_base}-${timestamp}.log" #one log file per execution
+# log_file="${logs_directory}/${script_base}-$(date +%F).log" #one log file per day
 
 # ---------- Root / sudo handling ----------
 isItRootUser() {
@@ -20,6 +21,7 @@ isItRootUser() {
 		fi
 	else
 		SUDO=""
+		echo "Executing this script as a ROOT user....."
 	fi
 }
 
@@ -34,7 +36,7 @@ main() {
 	echo "Log Directory: ${logs_directory}"
 	echo "MongoDB Log File Name: ${log_file}"
 
-	isItRootUser 
+	isItRootUser
 
 	# your MongoDB setup steps here...
 }
