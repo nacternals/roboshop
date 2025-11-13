@@ -33,13 +33,21 @@ createMongoRepo() {
 
     if [[ -f /etc/yum.repos.d/mongo.repo ]]; then
         echo "MongoDB repo already exists, skipping."
-    else
-        echo "MongoDB repo not found. Creating MongoDB repo..."
-		echo "MongoDB Repo location: ${SCRIPT_DIR}/mongodb.repo"
-        ${SUDO:-} cp "${SCRIPT_DIR}/mongodb.repo" /etc/yum.repos.d/mongo.repo
+        return
+    fi
+
+    echo "MongoDB repo not found. Creating MongoDB repo..."
+    echo "mongodb.repo script location: ${SCRIPT_DIR}/mongodb.repo"
+
+    # Try copying the repo file
+    if ${SUDO:-} cp "${SCRIPT_DIR}/mongodb.repo" /etc/yum.repos.d/mongo.repo; then
         echo "MongoDB repo created at /etc/yum.repos.d/mongo.repo"
+    else
+        echo "ERROR: Failed to create MongoDB repo. Copy operation failed."
+        exit 1
     fi
 }
+
 
 main() {
 	# Ensure log dir exists
