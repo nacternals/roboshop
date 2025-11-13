@@ -4,7 +4,7 @@ set -euo pipefail
 
 # ---------- Config ----------
 timestamp=$(date +"%F-%H-%M-%S")
-logs_directory="logs"
+logs_directory="/app/logs"
 script_name="$(basename "$0")"   # e.g. mongodb.sh
 script_base="${script_name%.*}"  # e.g. mongodb
 log_file="${logs_directory}/${script_base}-${timestamp}.log"
@@ -28,13 +28,13 @@ main() {
 	mkdir -p "${logs_directory}"
 
 	# Send everything (stdout + stderr) to log file from here on
-	exec >>"${log_file}" 2>&1
+	# exec >>"${log_file}" 2>&1
 
 	echo "MongoDB script execution has been started @ ${timestamp}"
 	echo "Log Directory: ${logs_directory}"
 	echo "MongoDB Log File Name: ${log_file}"
 
-	isItRootUser
+	isItRootUser >>"${log_file}" 2>&1 
 
 	# your MongoDB setup steps here...
 }
