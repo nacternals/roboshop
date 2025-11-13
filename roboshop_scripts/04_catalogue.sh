@@ -24,7 +24,7 @@ script_name="$(basename "$0")"                              # e.g. catalogue.sh
 script_base="${script_name%.*}"                             # e.g. catalogue
 log_file="${logs_directory}/${script_base}-$(date +%F).log" # one log file per day
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"  # Directory where script lives
-UTIL_PKG_FILE="${SCRIPT_DIR}/catalogueutilpackages.txt"     # File containing utility package list (one per line)
+UTIL_PKG_FILE="${SCRIPT_DIR}/05_catalogueutilpackages.txt"     # File containing utility package list (one per line)
 
 # ---------- Helper: validate step ----------
 # Usage pattern:
@@ -181,9 +181,9 @@ main() {
 	# Send everything (stdout + stderr) to log file from here on
 	exec >>"${log_file}" 2>&1
 
-	echo -e "${BLUE}MongoDB script execution has been started @ ${timestamp}${RESET}"
+	echo -e "${BLUE}Catalogue script execution has been started @ ${timestamp}${RESET}"
 	echo "Log Directory: ${logs_directory}"
-	echo "Log File Name: ${log_file}"
+	echo "Log File Location and Name: ${log_file}"
 
 	echo -e "\n${CYAN}Calling isItRootUser() to validate the user...${RESET}"
 	isItRootUser
