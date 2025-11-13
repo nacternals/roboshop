@@ -24,6 +24,7 @@ script_name="$(basename "$0")"                              # e.g. catalogue.sh
 script_base="${script_name%.*}"                             # e.g. catalogue
 log_file="${logs_directory}/${script_base}-$(date +%F).log" # one log file per day
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"  # Directory where script lives
+echo "source directory is : ${SCRIPT_DIR}"
 UTIL_PKG_FILE="${SCRIPT_DIR}/05_catalogueutilpackages.txt"     # File containing utility package list (one per line)
 
 # ---------- Helper: validate step ----------
