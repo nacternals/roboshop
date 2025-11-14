@@ -9,7 +9,7 @@
 #   - Removes default Nginx web content
 #   - Downloads and extracts web frontend content into /usr/share/nginx/html
 #   - Copies reverse proxy config (10_roboshop.conf) into /etc/nginx/default.d/roboshop.conf
-#   - Restarts Nginx
+#   - Tests and reloads Nginx
 #
 # Logging, colors, helper functions, and directory handling are similar to mongodb.sh/catalogue.sh.
 
@@ -119,7 +119,7 @@ basicAppRequirements() {
 		"Logs directory ${LOGS_DIRECTORY} is ready." \
 		"Failed to create logs directory ${LOGS_DIRECTORY}."
 
-	# 3) Ensure roboshop user exists (for consistency across components)
+	# 3) Ensure roboshop user exists
 	echo -e "${CYAN}Checking if 'roboshop' user exists....${RESET}"
 	if id roboshop >/dev/null 2>&1; then
 		echo -e "${YELLOW}User 'roboshop' already exists. Skipping user creation....${RESET}"
@@ -131,7 +131,7 @@ basicAppRequirements() {
 			"Failed to create application user 'roboshop'."
 	fi
 
-	# 4) Ownership (safe: we never delete /app)
+	# 4) Ownership
 	echo -e "${CYAN}Setting ownership of ${APP_DIR} to user 'roboshop'...${RESET}"
 	${SUDO:-} chown -R roboshop:roboshop "${APP_DIR}"
 	validateStep $? \
@@ -204,7 +204,7 @@ installNginx() {
 setupWebContent() {
 	echo -e "${CYAN}Preparing Nginx web root: ${NGINX_WEB_ROOT}${RESET}"
 
-	# Remove default Nginx content (SAFE: does not touch /app)
+	# Remove default Nginx content
 	echo -e "${CYAN}Removing default content from ${NGINX_WEB_ROOT}...${RESET}"
 	${SUDO:-} rm -rf "${NGINX_WEB_ROOT:?}/"*
 	validateStep $? \
@@ -226,9 +226,11 @@ setupWebContent() {
 		"Failed to extract frontend content into ${NGINX_WEB_ROOT}."
 }
 
-# ---------- Nginx reverse proxy config ----------
-configureNginxReverseProxy() {
-	echo -e "${CYAN}Configuring Nginx reverse proxy for RoboShop...${RESET}"
+# ---------- Nginx reverse proxy config with backup, test & reload ----------
+createRoboshopNginxConf() {
+	echo -e "${CYAN}Deploying Nginx roboshop.conf...${RESET}"
+	echo "Source : ${NGINX_CONF_SOURCE}"
+	echo "Target : ${NGINX_CONF_TARGET}"
 
 	# Ensure default.d exists
 	echo -e "${CYAN}Ensuring ${NGINX_CONF_TARGET_DIR} exists...${RESET}"
@@ -244,23 +246,38 @@ configureNginxReverseProxy() {
 		exit 1
 	fi
 
+	# Optional: backup existing target
+	if [[ -f "${NGINX_CONF_TARGET}" ]]; then
+		local BACKUP="${NGINX_CONF_TARGET}.$(date +%F-%H-%M-%S).bak"
+		echo -e "${YELLOW}Existing roboshop.conf found. Taking backup as ${BACKUP}${RESET}"
+		${SUDO:-} cp "${NGINX_CONF_TARGET}" "${BACKUP}"
+		validateStep $? \
+			"Backup of existing roboshop.conf created at ${BACKUP}." \
+			"Failed to backup existing roboshop.conf."
+	fi
+
+	# Copy new config
 	echo -e "${CYAN}Copying ${NGINX_CONF_SOURCE} to ${NGINX_CONF_TARGET}...${RESET}"
 	${SUDO:-} cp "${NGINX_CONF_SOURCE}" "${NGINX_CONF_TARGET}"
 	validateStep $? \
 		"Nginx reverse proxy config copied to ${NGINX_CONF_TARGET}." \
 		"Failed to copy Nginx reverse proxy config."
 
-	echo -e "${YELLOW}NOTE:${RESET} Ensure you replace 'localhost' in ${NGINX_CONF_TARGET}"
-	echo -e "${YELLOW}with the actual IP/hostname of catalogue, user, cart, shipping, payment services.${RESET}"
-}
-
-# ---------- Restart Nginx ----------
-restartNginx() {
-	echo -e "${CYAN}Restarting Nginx to apply configuration changes...${RESET}"
-	${SUDO:-} systemctl restart nginx
+	# Test nginx configuration
+	echo -e "${CYAN}Testing Nginx configuration...${RESET}"
+	${SUDO:-} nginx -t
 	validateStep $? \
-		"Nginx restarted successfully." \
-		"Failed to restart Nginx."
+		"Nginx configuration test passed." \
+		"Nginx configuration test failed."
+
+	# Reload nginx
+	echo -e "${CYAN}Reloading Nginx to apply new configuration...${RESET}"
+	${SUDO:-} systemctl reload nginx
+	validateStep $? \
+		"Nginx reloaded successfully." \
+		"Failed to reload Nginx."
+
+	echo -e "${GREEN}roboshop.conf deployed and Nginx reloaded successfully.${RESET}"
 }
 
 # ---------- Main ----------
@@ -296,11 +313,8 @@ main() {
 	echo -e "\n${CYAN}Calling setupWebContent()...${RESET}"
 	setupWebContent
 
-	echo -e "\n${CYAN}Calling configureNginxReverseProxy()...${RESET}"
-	configureNginxReverseProxy
-
-	echo -e "\n${CYAN}Calling restartNginx()...${RESET}"
-	restartNginx
+	echo -e "\n${CYAN}Calling createRoboshopNginxConf()...${RESET}"
+	createRoboshopNginxConf
 
 	echo -e "\n${GREEN}WEB/Nginx setup script completed successfully.${RESET}"
 }
