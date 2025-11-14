@@ -5,7 +5,7 @@
 #   - Installs required utility packages
 #   - Ensures NodeJS (>= 18) is installed
 #   - Creates roboshop application user and /app directory
-#   - Downloads and sets up the catalogue application code
+#   - Downloads and sets up the catalogue application code under /app/catalogue
 #   - Creates and starts the catalogue SystemD service
 #
 # Logging, colors, helper functions, and directory handling are similar to mongodb.sh.
@@ -13,7 +13,6 @@
 set -euo pipefail
 
 # ---------- Colors ----------
-# These are used for colored output (also visible when you 'cat' the log in a terminal)
 RED="\e[31m"
 GREEN="\e[32m"
 YELLOW="\e[33m"
@@ -24,22 +23,17 @@ RESET="\e[0m"
 # ---------- Config ----------
 TIMESTAMP="$(date +"%F-%H-%M-%S")" # Full timestamp of this run
 
-# Application root and logs directory (runtime paths)
-APP_DIR="/app"                   # Application root directory
-LOGS_DIRECTORY="${APP_DIR}/logs" # Central log directory -> /app/logs
+APP_DIR="/app"                           # Application root directory
+CATALOGUE_APP_DIR="${APP_DIR}/catalogue" # Catalogue app directory
+LOGS_DIRECTORY="${APP_DIR}/logs"         # Central log directory -> /app/logs
 
-# Script / repo location (where git pull happens)
 SCRIPT_NAME="$(basename "$0")"                             # e.g. catalogue.sh
 SCRIPT_BASE="${SCRIPT_NAME%.*}"                            # e.g. catalogue
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" # Directory where script lives
 
-# Log file: one per day, per script
 LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log"
 
-# Utility package list lives inside the git repo, next to script
 UTIL_PKG_FILE="${SCRIPT_DIR}/05_catalogueutilpackages.txt"
-
-# Catalogue SystemD service template
 CATALOGUE_SERVICE_FILE="${SCRIPT_DIR}/06_catalogue.service"
 
 printBoxHeader() {
@@ -53,9 +47,6 @@ printBoxHeader() {
 }
 
 # ---------- Helper: validate step ----------
-# Usage pattern:
-#   some_command
-#   validateStep $? "success message" "failure message"
 validateStep() {
 	local STATUS="$1"
 	local SUCCESS_MSG="$2"
@@ -64,16 +55,16 @@ validateStep() {
 	if [[ "${STATUS}" -eq 0 ]]; then
 		echo -e "${GREEN}[SUCCESS]${RESET} ${SUCCESS_MSG}"
 	else
-		echo -e "${RED}[FAILURE]${RESET} ${FAILURE_MSG} (exit code: ${STATUS})"
+		echo -e "${RED}[FAILURE]${RESET} ${_FAILURE_MSG} (exit code: ${STATUS})"
 		exit "${STATUS}"
 	fi
 }
 
-# ---------- Basic app requirements (/app + roboshop) ----------
+# ---------- Basic app requirements (/app + /app/logs + roboshop) ----------
 basicAppRequirements() {
-	echo -e "${CYAN}Ensuring basic application requirements (${APP_DIR} dir and roboshop user)...${RESET}"
+	echo -e "${CYAN}Ensuring basic application requirements (${APP_DIR} dir, logs dir and roboshop user)...${RESET}"
 
-	# 1) Ensure APP_DIR directory exists
+	# 1) Ensure /app exists
 	echo -e "${CYAN}Checking ${APP_DIR} directory...${RESET}"
 	if [[ -d "${APP_DIR}" ]]; then
 		echo -e "${YELLOW}${APP_DIR} directory already exists. Skipping creation....${RESET}"
@@ -85,7 +76,14 @@ basicAppRequirements() {
 			"Failed to create ${APP_DIR} directory."
 	fi
 
-	# 2) Ensure application user 'roboshop' exists
+	# 2) Ensure /app/logs exists
+	echo -e "${CYAN}Ensuring logs directory ${LOGS_DIRECTORY} exists...${RESET}"
+	${SUDO:-} mkdir -p "${LOGS_DIRECTORY}"
+	validateStep $? \
+		"Logs directory ${LOGS_DIRECTORY} is ready." \
+		"Failed to create logs directory ${LOGS_DIRECTORY}."
+
+	# 3) Ensure roboshop user exists
 	echo -e "${CYAN}Checking if 'roboshop' user exists....${RESET}"
 	if id roboshop >/dev/null 2>&1; then
 		echo -e "${YELLOW}User 'roboshop' already exists. Skipping user creation....${RESET}"
@@ -97,7 +95,7 @@ basicAppRequirements() {
 			"Failed to create application user 'roboshop'."
 	fi
 
-	# 3) Ensure APP_DIR ownership is set to roboshop
+	# 4) Ownership
 	echo -e "${CYAN}Setting ownership of ${APP_DIR} to user 'roboshop'...${RESET}"
 	${SUDO:-} chown -R roboshop:roboshop "${APP_DIR}"
 	validateStep $? \
@@ -106,8 +104,6 @@ basicAppRequirements() {
 }
 
 # ---------- Root / sudo handling ----------
-# Sets SUDO variable as "sudo" for non-root users (if sudo is available),
-# or empty string if script is already running as root.
 isItRootUser() {
 	echo -e "${CYAN}Checking whether script is running as ROOT...${RESET}"
 
@@ -126,21 +122,17 @@ isItRootUser() {
 }
 
 # ---------- Utility package installer ----------
-# Reads package names from 03_mongodbutilpackages.txt (one per line) and installs them.
 installUtilPackages() {
 	echo -e "${CYAN}Checking utility package list file: ${UTIL_PKG_FILE}${RESET}"
 
-	# Ensure the util package file exists
 	if [[ ! -f "${UTIL_PKG_FILE}" ]]; then
 		echo -e "${RED}ERROR: Utility package file not found: ${UTIL_PKG_FILE}${RESET}"
 		echo -e "${YELLOW}Create the file and add one package name per line, then rerun the script.${RESET}"
 		exit 1
 	fi
 
-	# Read packages into an array (skip empty lines)
 	local PACKAGES=()
 	while IFS= read -r PKG; do
-		# Trim simple whitespace and skip blank lines
 		[[ -z "${PKG}" ]] && continue
 		PACKAGES+=("${PKG}")
 	done <"${UTIL_PKG_FILE}"
@@ -152,7 +144,6 @@ installUtilPackages() {
 
 	echo -e "${CYAN}Utility packages to install: ${PACKAGES[*]}${RESET}"
 
-	# Install each package individually to track success/failure per package
 	for PKG in "${PACKAGES[@]}"; do
 		echo -e "${CYAN}Installing utility package: ${PKG}${RESET}"
 		${SUDO:-} yum install -y "${PKG}"
@@ -164,15 +155,14 @@ installUtilPackages() {
 	echo -e "${GREEN}All requested utility packages processed successfully.${RESET}"
 }
 
-# ---------- NodeJS installation (handles module and non-module OSes) ----------
+# ---------- NodeJS installation ----------
 installNodeJS() {
 	echo -e "${CYAN}Checking if NodeJS is already installed...${RESET}"
 
-	# Step 1: Check if NodeJS is already installed
 	if command -v node >/dev/null 2>&1; then
 		local node_version
-		node_version="$(node -v | sed 's/^v//')" # remove leading 'v', e.g. v18.19.0 -> 18.19.0
-		local node_major="${node_version%%.*}"   # take part before first dot, e.g. 18
+		node_version="$(node -v | sed 's/^v//')"
+		local node_major="${node_version%%.*}"
 
 		echo -e "${YELLOW}Found NodeJS version: ${node_version}${RESET}"
 
@@ -186,7 +176,6 @@ installNodeJS() {
 		echo -e "${YELLOW}NodeJS is not installed. Proceeding with fresh installation...${RESET}"
 	fi
 
-	# Step 2: Try module-based flow (CentOS/RHEL style)
 	echo -e "${CYAN}Checking if 'nodejs' module streams are available...${RESET}"
 	if ${SUDO:-} yum module list nodejs >/dev/null 2>&1; then
 		echo -e "${CYAN}NodeJS module stream detected. Using module-based installation...${RESET}"
@@ -209,10 +198,8 @@ installNodeJS() {
 			"NodeJS installed successfully from module stream." \
 			"Failed to install NodeJS from module stream."
 	else
-		# Step 3: Fallback path (Amazon Linux 2023, etc. without modules)
 		echo -e "${YELLOW}No 'nodejs' module streams found. Falling back to plain package installation.${RESET}"
 
-		# Try candidate package names in order
 		local candidates=(nodejs18 nodejs nodejs16)
 		local installed=false
 
@@ -235,7 +222,6 @@ installNodeJS() {
 		fi
 	fi
 
-	# Step 4: Final verification of NodeJS installation and version
 	echo -e "${CYAN}Verifying NodeJS installation and version...${RESET}"
 	if command -v node >/dev/null 2>&1; then
 		local final_node_version
@@ -259,54 +245,37 @@ installNodeJS() {
 installCatalogue() {
 	echo -e "${CYAN}Setting up Catalogue application...${RESET}"
 
-	# 1) Ensure roboshop user exists
-	echo -e "${CYAN}Checking if 'roboshop' user exists...${RESET}"
-	if id roboshop >/dev/null 2>&1; then
-		echo -e "${YELLOW}User 'roboshop' already exists. Skipping user creation.${RESET}"
-	else
-		echo -e "${CYAN}Creating application user 'roboshop'...${RESET}"
-		${SUDO:-} useradd roboshop
-		validateStep $? \
-			"Application user 'roboshop' created successfully." \
-			"Failed to create application user 'roboshop'."
-	fi
+	# Ensure catalogue app directory exists
+	echo -e "${CYAN}Ensuring ${CATALOGUE_APP_DIR} directory exists...${RESET}"
+	${SUDO:-} mkdir -p "${CATALOGUE_APP_DIR}"
+	validateStep $? \
+		"${CATALOGUE_APP_DIR} directory is ready." \
+		"Failed to create ${CATALOGUE_APP_DIR} directory."
 
-	# 2) Ensure /app directory exists
-	echo -e "${CYAN}Checking /app directory...${RESET}"
-	if [[ -d /app ]]; then
-		echo -e "${YELLOW}/app directory already exists.${RESET}"
-	else
-		echo -e "${CYAN}/app directory not found. Creating /app...${RESET}"
-		${SUDO:-} mkdir -p /app
-		validateStep $? \
-			"/app directory created successfully." \
-			"Failed to create /app directory."
-	fi
-
-	# 3) Download the catalogue code
+	# Download the catalogue code
 	echo -e "${CYAN}Downloading catalogue application code to /tmp/catalogue.zip...${RESET}"
 	${SUDO:-} curl -s -L -o /tmp/catalogue.zip "https://roboshop-builds.s3.amazonaws.com/catalogue.zip"
 	validateStep $? \
 		"Catalogue application zip downloaded successfully." \
 		"Failed to download catalogue application zip."
 
-	# 4) Unzip into /app
-	echo -e "${CYAN}Unzipping catalogue application into /app...${RESET}"
-	${SUDO:-} unzip -o /tmp/catalogue.zip -d /app >/dev/null
+	# Unzip into /app/catalogue
+	echo -e "${CYAN}Unzipping catalogue application into ${CATALOGUE_APP_DIR}...${RESET}"
+	${SUDO:-} unzip -o /tmp/catalogue.zip -d "${CATALOGUE_APP_DIR}" >/dev/null
 	validateStep $? \
-		"Catalogue application unzipped into /app successfully." \
-		"Failed to unzip catalogue application into /app."
+		"Catalogue application unzipped into ${CATALOGUE_APP_DIR} successfully." \
+		"Failed to unzip catalogue application into ${CATALOGUE_APP_DIR}."
 
-	# 5) Set ownership to roboshop user
-	echo -e "${CYAN}Setting ownership of /app to user 'roboshop'...${RESET}"
-	${SUDO:-} chown -R roboshop:roboshop /app
+	# Ownership
+	echo -e "${CYAN}Setting ownership of ${CATALOGUE_APP_DIR} to user 'roboshop'...${RESET}"
+	${SUDO:-} chown -R roboshop:roboshop "${CATALOGUE_APP_DIR}"
 	validateStep $? \
-		"Ownership of /app set to roboshop successfully." \
-		"Failed to set ownership of /app to roboshop."
+		"Ownership of ${CATALOGUE_APP_DIR} set to roboshop successfully." \
+		"Failed to set ownership of ${CATALOGUE_APP_DIR} to roboshop."
 
-	# 7) Install NodeJS dependencies as roboshop user
+	# Install NodeJS dependencies as roboshop user
 	echo -e "${CYAN}Installing NodeJS dependencies (npm install) as 'roboshop' user...${RESET}"
-	${SUDO:-} su - roboshop -s /bin/bash -c "cd /app && npm install" >/dev/null
+	${SUDO:-} su - roboshop -s /bin/bash -c "cd ${CATALOGUE_APP_DIR} && npm install" >/dev/null
 	validateStep $? \
 		"NodeJS dependencies installed successfully (npm install)." \
 		"Failed to install NodeJS dependencies (npm install)."
@@ -314,7 +283,7 @@ installCatalogue() {
 	echo -e "${GREEN}Catalogue application setup completed.${RESET}"
 }
 
-# ---------- SystemD service setup for Catalogue ----------
+# ---------- SystemD service setup ----------
 createCatalogueSystemDService() {
 	echo -e "${CYAN}Checking Catalogue SystemD service...${RESET}"
 
@@ -326,27 +295,23 @@ createCatalogueSystemDService() {
 	echo -e "${CYAN}Catalogue SystemD service not found. Creating Catalogue SystemD service....${RESET}"
 	echo "Catalogue service file location: ${CATALOGUE_SERVICE_FILE}"
 
-	# Copy the service unit file
 	${SUDO:-} cp "${CATALOGUE_SERVICE_FILE}" /etc/systemd/system/catalogue.service
 	validateStep $? \
 		"Catalogue SystemD service file has been created at /etc/systemd/system/catalogue.service." \
 		"Failed to create Catalogue SystemD service file. Copy operation failed."
 
-	# Reload systemd daemon
 	echo -e "${CYAN}Reloading SystemD daemon...${RESET}"
 	${SUDO:-} systemctl daemon-reload
 	validateStep $? \
 		"SystemD daemon reloaded successfully." \
 		"Failed to reload SystemD daemon."
 
-	# Enable catalogue service
 	echo -e "${CYAN}Enabling catalogue service to start on boot...${RESET}"
 	${SUDO:-} systemctl enable catalogue
 	validateStep $? \
 		"Catalogue service enabled to start on boot." \
 		"Failed to enable catalogue service."
 
-	# Start catalogue service
 	echo -e "${CYAN}Starting catalogue service...${RESET}"
 	${SUDO:-} systemctl start catalogue
 	validateStep $? \
@@ -358,14 +323,12 @@ createCatalogueSystemDService() {
 
 # ---------- Main ----------
 main() {
-	# Ensure log dir exists
 	mkdir -p "${LOGS_DIRECTORY}"
-
-	# Send everything (stdout + stderr) to log file from here on
 	exec >>"${LOG_FILE}" 2>&1
 
 	printBoxHeader "Catalogue Script Execution" "${TIMESTAMP}"
 	echo "App Directory: ${APP_DIR}"
+	echo "Catalogue App Directory: ${CATALOGUE_APP_DIR}"
 	echo "Log Directory: ${LOGS_DIRECTORY}"
 	echo "Log File Location and Name: ${LOG_FILE}"
 	echo "Script Name: ${SCRIPT_NAME}"
