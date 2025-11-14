@@ -4,12 +4,12 @@
 #
 # Purpose:
 #   - Prepare /app and roboshop user (like other roboshop scripts)
-#   - Download catalogue.zip and unzip it into /app
+#   - Download catalogue.zip and unzip it into /app/catalogue
 #   - Install MongoDB shell client (mongodb-org-shell)
 #   - Load the Catalogue schema into the MongoDB server
 #
 # Notes:
-#   - Expects catalogue schema at /app/schema/catalogue.js after unzip
+#   - Expects catalogue schema at /app/catalogue/schema/catalogue.js after unzip
 #   - MongoDB server must be reachable on port 27017
 #   - MONGODB_HOST can be overridden via environment variable when running
 
@@ -24,10 +24,11 @@ CYAN="\e[36m"
 RESET="\e[0m"
 
 # ---------- Config ----------
-TIMESTAMP="$(date +"%F-%H-%M-%S")" # Full timestamp of this run
+TIMESTAMP="$(date +"%F-%H-%M-%S")"        # Full timestamp of this run
 
-APP_DIR="/app"                   # Application root directory
-LOGS_DIRECTORY="${APP_DIR}/logs" # Central log directory -> /app/logs
+APP_DIR="/app"                            # Application root directory
+CATALOGUE_APP_DIR="${APP_DIR}/catalogue"  # Catalogue app root
+LOGS_DIRECTORY="${APP_DIR}/logs"          # Central log directory -> /app/logs
 
 SCRIPT_NAME="$(basename "$0")"                             # e.g. 07_loadcatalogueschema.sh
 SCRIPT_BASE="${SCRIPT_NAME%.*}"                            # e.g. 07_loadcatalogueschema
@@ -35,221 +36,232 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" # Directory where scr
 
 LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log"
 
-# MongoDB repo file inside repo (reuse the same 02_mongodb.repo)
+# MongoDB repo file inside repo (reuse the same 02_mongodb.repo you already have)
 MONGO_REPO_FILE="${SCRIPT_DIR}/02_mongodb.repo"
 
 # Where catalogue schema is expected after unzip
-CATALOGUE_SCHEMA_FILE="${APP_DIR}/schema/catalogue.js"
+CATALOGUE_SCHEMA_FILE="${CATALOGUE_APP_DIR}/schema/catalogue.js"
 
 # MongoDB host (can override when running: MONGODB_HOST=my-mongo bash 07_loadcatalogueschema.sh)
 MONGODB_HOST="${MONGODB_HOST:-mongodb.optimusprime.sbs}"
 MONGODB_PORT="${MONGODB_PORT:-27017}"
 
-printBoxHeader() {
-	local TITLE="$1"
-	local TIME="$2"
-
-	echo -e "${BLUE}===========================================${RESET}"
-	printf "${CYAN}%20s${RESET}\n" "$TITLE"
-	printf "${YELLOW}%20s${RESET}\n" "Started @ $TIME"
-	echo -e "${BLUE}===========================================${RESET}"
-}
-
 # ---------- Helper: validate step ----------
 validateStep() {
-	local STATUS="$1"
-	local SUCCESS_MSG="$2"
-	local FAILURE_MSG="$3"
+    local STATUS="$1"
+    local SUCCESS_MSG="$2"
+    local FAILURE_MSG="$3"
 
-	if [[ "${STATUS}" -eq 0 ]]; then
-		echo -e "${GREEN}[SUCCESS]${RESET} ${SUCCESS_MSG}"
-	else
-		echo -e "${RED}[FAILURE]${RESET} ${FAILURE_MSG} (exit code: ${STATUS})"
-		exit "${STATUS}"
-	fi
+    if [[ "${STATUS}" -eq 0 ]]; then
+        echo -e "${GREEN}[SUCCESS]${RESET} ${SUCCESS_MSG}"
+    else
+        echo -e "${RED}[FAILURE]${RESET} ${FAILURE_MSG} (exit code: ${STATUS})"
+        exit "${STATUS}"
+    fi
 }
 
 # ---------- Root / sudo handling ----------
 isItRootUser() {
-	echo -e "${CYAN}Checking whether script is running as ROOT...${RESET}"
+    echo -e "${CYAN}Checking whether script is running as ROOT...${RESET}"
 
-	if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
-		if command -v sudo >/dev/null 2>&1; then
-			SUDO="sudo"
-			echo -e "${YELLOW}Not ROOT. Using 'sudo' for privileged operations.${RESET}"
-		else
-			echo -e "${RED}ERROR: Insufficient privileges. Run as ROOT or install sudo.${RESET}"
-			exit 1
-		fi
-	else
-		SUDO=""
-		echo -e "${GREEN}Executing this script as ROOT user.${RESET}"
-	fi
+    if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
+        if command -v sudo >/dev/null 2>&1; then
+            SUDO="sudo"
+            echo -e "${YELLOW}Not ROOT. Using 'sudo' for privileged operations.${RESET}"
+        else
+            echo -e "${RED}ERROR: Insufficient privileges. Run as ROOT or install sudo.${RESET}"
+            exit 1
+        fi
+    else
+        SUDO=""
+        echo -e "${GREEN}Executing this script as ROOT user.${RESET}"
+    fi
 }
 
-# ---------- Basic app requirements (/app + roboshop) ----------
+# ---------- Basic app requirements (/app + /app/logs + roboshop) ----------
 basicAppRequirements() {
-	echo -e "${CYAN}Ensuring basic application requirements (${APP_DIR} dir and roboshop user)...${RESET}"
+    echo -e "${CYAN}Ensuring basic application requirements (${APP_DIR} dir and roboshop user)...${RESET}"
 
-	# 1) Ensure APP_DIR directory exists
-	echo -e "${CYAN}Checking ${APP_DIR} directory...${RESET}"
-	if [[ -d "${APP_DIR}" ]]; then
-		echo -e "${YELLOW}${APP_DIR} directory already exists. Skipping creation....${RESET}"
-	else
-		echo -e "${CYAN}${APP_DIR} directory not found. Creating ${APP_DIR}....${RESET}"
-		${SUDO:-} mkdir -p "${APP_DIR}"
-		validateStep $? \
-			"${APP_DIR} directory created successfully." \
-			"Failed to create ${APP_DIR} directory."
-	fi
+    # 1) Ensure APP_DIR directory exists
+    echo -e "${CYAN}Checking ${APP_DIR} directory...${RESET}"
+    if [[ -d "${APP_DIR}" ]]; then
+        echo -e "${YELLOW}${APP_DIR} directory already exists. Skipping creation....${RESET}"
+    else
+        echo -e "${CYAN}${APP_DIR} directory not found. Creating ${APP_DIR}....${RESET}"
+        ${SUDO:-} mkdir -p "${APP_DIR}"
+        validateStep $? \
+            "${APP_DIR} directory created successfully." \
+            "Failed to create ${APP_DIR} directory."
+    fi
 
-	# 2) Ensure application user 'roboshop' exists
-	echo -e "${CYAN}Checking if 'roboshop' user exists....${RESET}"
-	if id roboshop >/dev/null 2>&1; then
-		echo -e "${YELLOW}User 'roboshop' already exists. Skipping user creation....${RESET}"
-	else
-		echo -e "${CYAN}Creating application user 'roboshop'...${RESET}"
-		${SUDO:-} useradd roboshop
-		validateStep $? \
-			"Application user 'roboshop' created successfully." \
-			"Failed to create application user 'roboshop'."
-	fi
+    # 2) Ensure logs directory exists
+    echo -e "${CYAN}Ensuring logs directory ${LOGS_DIRECTORY} exists...${RESET}"
+    ${SUDO:-} mkdir -p "${LOGS_DIRECTORY}"
+    validateStep $? \
+        "Logs directory ${LOGS_DIRECTORY} is ready." \
+        "Failed to create logs directory ${LOGS_DIRECTORY}."
 
-	# 3) Ensure APP_DIR ownership is set to roboshop
-	echo -e "${CYAN}Setting ownership of ${APP_DIR} to user 'roboshop'...${RESET}"
-	${SUDO:-} chown -R roboshop:roboshop "${APP_DIR}"
-	validateStep $? \
-		"Ownership of ${APP_DIR} set to roboshop successfully." \
-		"Failed to set ownership of ${APP_DIR} to roboshop."
+    # 3) Ensure application user 'roboshop' exists
+    echo -e "${CYAN}Checking if 'roboshop' user exists....${RESET}"
+    if id roboshop >/dev/null 2>&1; then
+        echo -e "${YELLOW}User 'roboshop' already exists. Skipping user creation....${RESET}"
+    else
+        echo -e "${CYAN}Creating application user 'roboshop'...${RESET}"
+        ${SUDO:-} useradd roboshop
+        validateStep $? \
+            "Application user 'roboshop' created successfully." \
+            "Failed to create application user 'roboshop'."
+    fi
+
+    # 4) Ensure ownership of APP_DIR (including logs) is set to roboshop
+    echo -e "${CYAN}Setting ownership of ${APP_DIR} to user 'roboshop'...${RESET}"
+    ${SUDO:-} chown -R roboshop:roboshop "${APP_DIR}"
+    validateStep $? \
+        "Ownership of ${APP_DIR} set to roboshop successfully." \
+        "Failed to set ownership of ${APP_DIR} to roboshop."
 }
 
-# ---------- Download and unzip catalogue code (for schema) ----------
+# ---------- Download and unzip catalogue code into /app/catalogue ----------
 downloadCatalogueCode() {
-	echo -e "${CYAN}Preparing catalogue code under ${APP_DIR} for schema load...${RESET}"
+    echo -e "${CYAN}Preparing catalogue code under ${CATALOGUE_APP_DIR} for schema load...${RESET}"
 
-	# Download catalogue.zip
-	echo -e "${CYAN}Downloading catalogue application code to /tmp/catalogue.zip...${RESET}"
-	${SUDO:-} curl -s -L -o /tmp/catalogue.zip "https://roboshop-builds.s3.amazonaws.com/catalogue.zip"
-	validateStep $? \
-		"Catalogue application zip downloaded successfully." \
-		"Failed to download catalogue application zip."
+    # Ensure catalogue app directory exists
+    echo -e "${CYAN}Ensuring ${CATALOGUE_APP_DIR} directory exists...${RESET}"
+    ${SUDO:-} mkdir -p "${CATALOGUE_APP_DIR}"
+    validateStep $? \
+        "${CATALOGUE_APP_DIR} directory is ready." \
+        "Failed to create ${CATALOGUE_APP_DIR} directory."
 
+    # Download catalogue.zip
+    echo -e "${CYAN}Downloading catalogue application code to /tmp/catalogue.zip...${RESET}"
+    ${SUDO:-} curl -s -L -o /tmp/catalogue.zip "https://roboshop-builds.s3.amazonaws.com/catalogue.zip"
+    validateStep $? \
+        "Catalogue application zip downloaded successfully." \
+        "Failed to download catalogue application zip."
 
-	# Unzip into APP_DIR
-	echo -e "${CYAN}Unzipping catalogue application into ${APP_DIR}...${RESET}"
-	${SUDO:-} unzip -o /tmp/catalogue.zip -d "${APP_DIR}" >/dev/null
-	validateStep $? \
-		"Catalogue application unzipped into ${APP_DIR} successfully." \
-		"Failed to unzip catalogue application into ${APP_DIR}."
+    # Optional: clean only catalogue app directory (NOT /app/logs)
+    echo -e "${CYAN}Cleaning existing contents under ${CATALOGUE_APP_DIR} (but keeping /app/logs intact)...${RESET}"
+    ${SUDO:-} rm -rf "${CATALOGUE_APP_DIR}"/*
+    validateStep $? \
+        "Existing contents under ${CATALOGUE_APP_DIR} cleaned successfully." \
+        "Failed to clean existing contents under ${CATALOGUE_APP_DIR}."
 
-	# Ensure ownership to roboshop
-	echo -e "${CYAN}Setting ownership of ${APP_DIR} to user 'roboshop' after unzip...${RESET}"
-	${SUDO:-} chown -R roboshop:roboshop "${APP_DIR}"
-	validateStep $? \
-		"Ownership of ${APP_DIR} set to roboshop successfully." \
-		"Failed to set ownership of ${APP_DIR} to roboshop."
+    # Unzip into CATALOGUE_APP_DIR
+    echo -e "${CYAN}Unzipping catalogue application into ${CATALOGUE_APP_DIR}...${RESET}"
+    ${SUDO:-} unzip -o /tmp/catalogue.zip -d "${CATALOGUE_APP_DIR}" >/dev/null
+    validateStep $? \
+        "Catalogue application unzipped into ${CATALOGUE_APP_DIR} successfully." \
+        "Failed to unzip catalogue application into ${CATALOGUE_APP_DIR}."
 
-	# Check schema file exists
-	if [[ ! -f "${CATALOGUE_SCHEMA_FILE}" ]]; then
-		echo -e "${RED}ERROR: Expected schema file not found: ${CATALOGUE_SCHEMA_FILE}${RESET}"
-		exit 1
-	fi
+    # Ensure ownership to roboshop
+    echo -e "${CYAN}Setting ownership of ${CATALOGUE_APP_DIR} to user 'roboshop' after unzip...${RESET}"
+    ${SUDO:-} chown -R roboshop:roboshop "${CATALOGUE_APP_DIR}"
+    validateStep $? \
+        "Ownership of ${CATALOGUE_APP_DIR} set to roboshop successfully." \
+        "Failed to set ownership of ${CATALOGUE_APP_DIR} to roboshop."
 
-	echo -e "${GREEN}Catalogue code prepared and schema file found at ${CATALOGUE_SCHEMA_FILE}.${RESET}"
+    # Check schema file exists
+    if [[ ! -f "${CATALOGUE_SCHEMA_FILE}" ]]; then
+        echo -e "${RED}ERROR: Expected schema file not found: ${CATALOGUE_SCHEMA_FILE}${RESET}"
+        exit 1
+    fi
+
+    echo -e "${GREEN}Catalogue code prepared and schema file found at ${CATALOGUE_SCHEMA_FILE}.${RESET}"
 }
 
 # ---------- MongoDB repo for client ----------
 createMongoRepoForClient() {
-	echo -e "${CYAN}Checking MongoDB repo for client tools...${RESET}"
+    echo -e "${CYAN}Checking MongoDB repo for client tools...${RESET}"
 
-	if [[ -f /etc/yum.repos.d/mongo.repo ]]; then
-		echo -e "${YELLOW}MongoDB repo already exists, skipping....${RESET}"
-		return
-	fi
+    if [[ -f /etc/yum.repos.d/mongo.repo ]]; then
+        echo -e "${YELLOW}MongoDB repo already exists, skipping....${RESET}"
+        return
+    fi
 
-	if [[ ! -f "${MONGO_REPO_FILE}" ]]; then
-		echo -e "${RED}ERROR: MongoDB repo template file not found: ${MONGO_REPO_FILE}${RESET}"
-		exit 1
-	fi
+    if [[ ! -f "${MONGO_REPO_FILE}" ]]; then
+        echo -e "${RED}ERROR: MongoDB repo template file not found: ${MONGO_REPO_FILE}${RESET}"
+        exit 1
+    fi
 
-	echo -e "${CYAN}MongoDB repo not found. Creating MongoDB repo for client....${RESET}"
-	echo "mongo.repo template location: ${MONGO_REPO_FILE}"
+    echo -e "${CYAN}MongoDB repo not found. Creating MongoDB repo for client....${RESET}"
+    echo "mongo.repo template location: ${MONGO_REPO_FILE}"
 
-	${SUDO:-} cp "${MONGO_REPO_FILE}" /etc/yum.repos.d/mongo.repo
-	validateStep $? \
-		"MongoDB repo created at /etc/yum.repos.d/mongo.repo" \
-		"Failed to create MongoDB repo. Copy operation failed."
+    ${SUDO:-} cp "${MONGO_REPO_FILE}" /etc/yum.repos.d/mongo.repo
+    validateStep $? \
+        "MongoDB repo created at /etc/yum.repos.d/mongo.repo" \
+        "Failed to create MongoDB repo. Copy operation failed."
 }
 
 # ---------- Install MongoDB shell client ----------
 installMongoClient() {
-	echo -e "${CYAN}Checking if MongoDB shell (mongodb-org-shell) is installed...${RESET}"
+    echo -e "${CYAN}Checking if MongoDB shell (mongodb-org-shell) is installed...${RESET}"
 
-	if rpm -q mongodb-org-shell >/dev/null 2>&1; then
-		echo -e "${YELLOW}mongodb-org-shell is already installed. Skipping installation.${RESET}"
-		return
-	fi
+    if rpm -q mongodb-org-shell >/dev/null 2>&1; then
+        echo -e "${YELLOW}mongodb-org-shell is already installed. Skipping installation.${RESET}"
+        return
+    fi
 
-	echo -e "${CYAN}Installing MongoDB shell client (mongodb-org-shell)...${RESET}"
-	${SUDO:-} yum install -y mongodb-org-shell
-	validateStep $? \
-		"MongoDB shell client (mongodb-org-shell) installed successfully." \
-		"Failed to install MongoDB shell client (mongodb-org-shell)."
+    echo -e "${CYAN}Installing MongoDB shell client (mongodb-org-shell)...${RESET}"
+    ${SUDO:-} yum install -y mongodb-org-shell
+    validateStep $? \
+        "MongoDB shell client (mongodb-org-shell) installed successfully." \
+        "Failed to install MongoDB shell client (mongodb-org-shell)."
 }
 
 # ---------- Load Catalogue schema ----------
 loadCatalogueSchema() {
-	echo -e "${CYAN}Loading Catalogue schema into MongoDB...${RESET}"
+    echo -e "${CYAN}Loading Catalogue schema into MongoDB...${RESET}"
 
-	if [[ ! -f "${CATALOGUE_SCHEMA_FILE}" ]]; then
-		echo -e "${RED}ERROR: Catalogue schema file not found: ${CATALOGUE_SCHEMA_FILE}${RESET}"
-		echo -e "${YELLOW}Ensure catalogue application code is deployed under ${APP_DIR} with schema/catalogue.js${RESET}"
-		exit 1
-	fi
+    if [[ ! -f "${CATALOGUE_SCHEMA_FILE}" ]]; then
+        echo -e "${RED}ERROR: Catalogue schema file not found: ${CATALOGUE_SCHEMA_FILE}${RESET}"
+        echo -e "${YELLOW}Ensure catalogue application code is deployed under ${CATALOGUE_APP_DIR} with schema/catalogue.js${RESET}"
+        exit 1
+    fi
 
-	echo -e "${CYAN}Using MongoDB host: ${MONGODB_HOST}:${MONGODB_PORT}${RESET}"
-	echo -e "${CYAN}Running: mongo --host ${MONGODB_HOST} --port ${MONGODB_PORT} < ${CATALOGUE_SCHEMA_FILE}${RESET}"
+    echo -e "${CYAN}Using MongoDB host: ${MONGODB_HOST}:${MONGODB_PORT}${RESET}"
+    echo -e "${CYAN}Running: mongo --host ${MONGODB_HOST} --port ${MONGODB_PORT} < ${CATALOGUE_SCHEMA_FILE}${RESET}"
 
-	mongo --host "${MONGODB_HOST}" --port "${MONGODB_PORT}" <"${CATALOGUE_SCHEMA_FILE}"
-	validateStep $? \
-		"Catalogue schema loaded successfully into MongoDB." \
-		"Failed to load catalogue schema into MongoDB."
+    mongo --host "${MONGODB_HOST}" --port "${MONGODB_PORT}" < "${CATALOGUE_SCHEMA_FILE}"
+    validateStep $? \
+        "Catalogue schema loaded successfully into MongoDB." \
+        "Failed to load catalogue schema into MongoDB."
 }
 
 # ---------- Main ----------
 main() {
-	# Ensure log dir exists
-	mkdir -p "${LOGS_DIRECTORY}"
+    # Ensure log dir exists
+    mkdir -p "${LOGS_DIRECTORY}"
 
-	# Send everything (stdout + stderr) to log file from here on
-	exec >>"${LOG_FILE}" 2>&1
+    # Send everything (stdout + stderr) to log file from here on
+    exec >> "${LOG_FILE}" 2>&1
 
-	printBoxHeader "Load Catalogue Schema Script Execution" "${TIMESTAMP}"
-	echo "App Directory: ${APP_DIR}"
-	echo "Log Directory: ${LOGS_DIRECTORY}"
-	echo "Log File Location and Name: ${LOG_FILE}"
-	echo "Script Directory: ${SCRIPT_DIR}"
-	echo "MongoDB Host: ${MONGODB_HOST}:${MONGODB_PORT}"
+    echo -e "${BLUE}Load Catalogue Schema script execution started @ ${TIMESTAMP}${RESET}"
+    echo "App Directory: ${APP_DIR}"
+    echo "Catalogue App Directory: ${CATALOGUE_APP_DIR}"
+    echo "Log Directory: ${LOGS_DIRECTORY}"
+    echo "Log File Location and Name: ${LOG_FILE}"
+    echo "Script Directory: ${SCRIPT_DIR}"
+    echo "MongoDB Host: ${MONGODB_HOST}:${MONGODB_PORT}"
 
-	echo -e "\n${CYAN}Calling isItRootUser() to validate the user...${RESET}"
-	isItRootUser
+    echo -e "\n${CYAN}Calling isItRootUser() to validate the user...${RESET}"
+    isItRootUser
 
-	echo -e "\n${CYAN}Calling basicAppRequirements()....${RESET}"
-	basicAppRequirements
+    echo -e "\n${CYAN}Calling basicAppRequirements()....${RESET}"
+    basicAppRequirements
 
-	echo -e "\n${CYAN}Calling downloadCatalogueCode() to download and unzip catalogue code...${RESET}"
-	downloadCatalogueCode
+    echo -e "\n${CYAN}Calling downloadCatalogueCode() to download and unzip catalogue code into ${CATALOGUE_APP_DIR}...${RESET}"
+    downloadCatalogueCode
 
-	echo -e "\n${CYAN}Calling createMongoRepoForClient() to configure MongoDB repo...${RESET}"
-	createMongoRepoForClient
+    echo -e "\n${CYAN}Calling createMongoRepoForClient() to configure MongoDB repo...${RESET}"
+    createMongoRepoForClient
 
-	echo -e "\n${CYAN}Calling installMongoClient() to install MongoDB shell client...${RESET}"
-	installMongoClient
+    echo -e "\n${CYAN}Calling installMongoClient() to install MongoDB shell client...${RESET}"
+    installMongoClient
 
-	echo -e "\n${CYAN}Calling loadCatalogueSchema() to load schema into MongoDB...${RESET}"
-	loadCatalogueSchema
+    echo -e "\n${CYAN}Calling loadCatalogueSchema() to load schema into MongoDB...${RESET}"
+    loadCatalogueSchema
 
-	echo -e "\n${GREEN}Load Catalogue Schema script completed successfully.${RESET}"
+    echo -e "\n${GREEN}Load Catalogue Schema script completed successfully.${RESET}"
 }
 
 main "$@"
