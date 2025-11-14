@@ -1,5 +1,18 @@
 #!/usr/bin/env bash
 
+# This script will install and configure Redis for RoboShop.
+#
+# It:
+#   - Ensures /app, /app/logs and roboshop user exist
+#   - Installs Remi repo and enables redis:remi-6.2 module
+#   - Installs redis package
+#   - Changes bind address from 127.0.0.1 to 0.0.0.0
+#     in /etc/redis.conf and /etc/redis/redis.conf (if present)
+#   - Enables and restarts Redis service
+#
+# Logging, colors, helper functions, and directory handling
+# are consistent with mongodb.sh, catalogue.sh, and 08_web_nginx.sh.
+
 set -euo pipefail
 
 # ---------- Colors ----------
@@ -11,16 +24,13 @@ CYAN="\e[36m"
 RESET="\e[0m"
 
 # ---------- Config ----------
-TIMESTAMP="$(date +"%F-%H-%M-%S")"
-
-APP_DIR="/app"
-LOGS_DIRECTORY="${APP_DIR}/logs"
-
-SCRIPT_NAME="$(basename "$0")"
-SCRIPT_BASE="${SCRIPT_NAME%.*}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log"
+TIMESTAMP="$(date +"%F-%H-%M-%S")" # Full timestamp of this run
+APP_DIR="/app"                   						   # Application root directory
+LOGS_DIRECTORY="${APP_DIR}/logs" 						   # Central log directory -> /app/logs
+SCRIPT_NAME="$(basename "$0")"                             # e.g. redis.sh
+SCRIPT_BASE="${SCRIPT_NAME%.*}"                            # e.g. redis
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" # Directory where script lives
+LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log" # one log file per day
 
 # Package manager (dnf or yum)
 PKG_MGR="dnf"
@@ -28,6 +38,7 @@ if ! command -v dnf >/dev/null 2>&1; then
 	PKG_MGR="yum"
 fi
 
+# ---------- Pretty header ----------
 printBoxHeader() {
 	local TITLE="$1"
 	local TIME="$2"
@@ -38,6 +49,10 @@ printBoxHeader() {
 	echo -e "${BLUE}===========================================${RESET}"
 }
 
+# ---------- Helper: validate step ----------
+# Usage:
+#   some_command
+#   validateStep $? "success msg" "failure msg"
 validateStep() {
 	local STATUS="$1"
 	local SUCCESS_MSG="$2"
@@ -51,6 +66,8 @@ validateStep() {
 	fi
 }
 
+# ---------- Root / sudo handling ----------
+# Sets SUDO="sudo" for non-root (if sudo exists), or "" for root.
 isItRootUser() {
 	echo -e "${CYAN}Checking whether script is running as ROOT...${RESET}"
 
@@ -68,9 +85,12 @@ isItRootUser() {
 	fi
 }
 
+# ---------- Basic app requirements (/app + /app/logs + roboshop) ----------
 basicAppRequirements() {
 	echo -e "${CYAN}Ensuring basic application requirements (${APP_DIR} dir, logs dir and roboshop user)...${RESET}"
 
+	# 1) Ensure /app exists
+	echo -e "${CYAN}Checking ${APP_DIR} directory...${RESET}"
 	if [[ -d "${APP_DIR}" ]]; then
 		echo -e "${YELLOW}${APP_DIR} directory already exists. Skipping creation....${RESET}"
 	else
@@ -81,12 +101,14 @@ basicAppRequirements() {
 			"Failed to create ${APP_DIR} directory."
 	fi
 
+	# 2) Ensure /app/logs exists
 	echo -e "${CYAN}Ensuring logs directory ${LOGS_DIRECTORY} exists...${RESET}"
 	${SUDO:-} mkdir -p "${LOGS_DIRECTORY}"
 	validateStep $? \
 		"Logs directory ${LOGS_DIRECTORY} is ready." \
 		"Failed to create logs directory ${LOGS_DIRECTORY}."
 
+	# 3) Ensure roboshop user exists
 	echo -e "${CYAN}Checking if 'roboshop' user exists....${RESET}"
 	if id roboshop >/dev/null 2>&1; then
 		echo -e "${YELLOW}User 'roboshop' already exists. Skipping user creation....${RESET}"
@@ -98,6 +120,7 @@ basicAppRequirements() {
 			"Failed to create application user 'roboshop'."
 	fi
 
+	# 4) Ensure /app owned by roboshop
 	echo -e "${CYAN}Setting ownership of ${APP_DIR} to user 'roboshop'...${RESET}"
 	${SUDO:-} chown -R roboshop:roboshop "${APP_DIR}"
 	validateStep $? \
@@ -105,21 +128,25 @@ basicAppRequirements() {
 		"Failed to set ownership of ${APP_DIR} to roboshop."
 }
 
+# ---------- Redis installation (Remi repo + module + package) ----------
 installRedis() {
 	echo -e "${CYAN}Installing Redis repositories and packages...${RESET}"
 
+	# Install Remi repo RPM
 	echo -e "${CYAN}Installing Remi repository RPM...${RESET}"
 	${SUDO:-} "${PKG_MGR}" install -y https://rpms.remirepo.net/enterprise/remi-release-8.rpm
 	validateStep $? \
 		"Remi repository RPM installed successfully." \
 		"Failed to install Remi repository RPM."
 
+	# Enable redis:remi-6.2 module stream
 	echo -e "${CYAN}Enabling redis:remi-6.2 module stream...${RESET}"
 	${SUDO:-} "${PKG_MGR}" module enable -y redis:remi-6.2
 	validateStep $? \
 		"redis:remi-6.2 module enabled successfully." \
 		"Failed to enable redis:remi-6.2 module."
 
+	# Install Redis
 	echo -e "${CYAN}Installing Redis server...${RESET}"
 	${SUDO:-} "${PKG_MGR}" install -y redis
 	validateStep $? \
@@ -127,20 +154,26 @@ installRedis() {
 		"Failed to install Redis server."
 }
 
+# ---------- Redis configuration (bind 0.0.0.0) ----------
 configureRedis() {
 	echo -e "${CYAN}Configuring Redis to listen on 0.0.0.0...${RESET}"
 
 	for FILE in /etc/redis.conf /etc/redis/redis.conf; do
 		if [[ -f "${FILE}" ]]; then
 			echo -e "${CYAN}Updating bind address in ${FILE}...${RESET}"
+			# Handle both uncommented and commented bind lines
 			${SUDO:-} sed -i 's/^bind .*/bind 0.0.0.0/' "${FILE}" || true
 			${SUDO:-} sed -i 's/^# *bind .*/bind 0.0.0.0/' "${FILE}" || true
 		fi
 	done
+
+	echo -e "${GREEN}Redis configuration updated (bind 0.0.0.0 where applicable).${RESET}"
 }
 
+# ---------- Redis service enable + start ----------
 startRedis() {
 	echo -e "${CYAN}Enabling and starting Redis service...${RESET}"
+
 	${SUDO:-} systemctl enable redis
 	validateStep $? \
 		"Redis service enabled successfully." \
@@ -152,24 +185,42 @@ startRedis() {
 		"Failed to start/restart Redis service."
 }
 
+# ---------- Main ----------
 main() {
+	# Ensure log dir exists before redirecting
 	mkdir -p "${LOGS_DIRECTORY}"
+
+	# Redirect all stdout+stderr to log file
 	exec >>"${LOG_FILE}" 2>&1
 
 	printBoxHeader "Redis Setup Script Execution" "${TIMESTAMP}"
 
-	echo "Script Name      : ${SCRIPT_NAME}"
-	echo "Script Directory : ${SCRIPT_DIR}"
-	echo "Log File         : ${LOG_FILE}"
+	# Echo all key variables for traceability
+	echo "Script Name          : ${SCRIPT_NAME}"
+	echo "Script Base          : ${SCRIPT_BASE}"
+	echo "Script Directory     : ${SCRIPT_DIR}"
+	echo "App Directory        : ${APP_DIR}"
+	echo "Logs Directory       : ${LOGS_DIRECTORY}"
+	echo "Log File             : ${LOG_FILE}"
+	echo "Package Manager      : ${PKG_MGR}"
+	echo "Execution Timestamp  : ${TIMESTAMP}"
 
+	echo -e "\n${CYAN}Calling isItRootUser() to validate the user...${RESET}"
 	isItRootUser
+
+	echo -e "\n${CYAN}Calling basicAppRequirements()....${RESET}"
 	basicAppRequirements
 
+	echo -e "\n${CYAN}Calling installRedis()....${RESET}"
 	installRedis
+
+	echo -e "\n${CYAN}Calling configureRedis()....${RESET}"
 	configureRedis
+
+	echo -e "\n${CYAN}Calling startRedis()....${RESET}"
 	startRedis
 
-	echo -e "${GREEN}Redis setup script completed successfully.${RESET}"
+	echo -e "\n${GREEN}Redis setup script completed successfully.${RESET}"
 }
 
 main "$@"
