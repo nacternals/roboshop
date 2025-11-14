@@ -12,44 +12,88 @@ CYAN="\e[36m"
 RESET="\e[0m"
 
 # ---------- Config ----------
-timestamp="$(date +"%F-%H-%M-%S")" # Full timestamp of this run
-logs_directory="/app/logs"         # Central log directory
-script_name="$(basename "$0")"     # e.g. mongodb.sh
-script_base="${script_name%.*}"    # e.g. mongodb
-# log_file="${logs_directory}/${script_base}-${timestamp}.log"    # one log file per execution
-log_file="${logs_directory}/${script_base}-$(date +%F).log" # one log file per day
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"  # Directory where script lives
-UTIL_PKG_FILE="${SCRIPT_DIR}/03_mongodbutilpackages.txt" # File containing utility package list (one per line)
+TIMESTAMP="$(date +"%F-%H-%M-%S")" # Full timestamp of this run
+
+# Application root and logs directory (runtime paths)
+APP_DIR="/app"                   # Application root directory
+LOGS_DIRECTORY="${APP_DIR}/logs" # Central log directory -> /app/logs
+
+# Script / repo location (where git pull happens)
+SCRIPT_NAME="$(basename "$0")"                             # e.g. mongodb.sh
+SCRIPT_BASE="${SCRIPT_NAME%.*}"                            # e.g. mongodb
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" # Directory where script lives
+
+# Log file: one per day, per script
+LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log"
+
+# Utility package list lives inside the git repo, next to script
+UTIL_PKG_FILE="${SCRIPT_DIR}/03_mongodbutilpackages.txt"
 
 # ---------- Helper: validate step ----------
 # Usage pattern:
 #   some_command
 #   validateStep $? "success message" "failure message"
 validateStep() {
-	local status="$1"
-	local success_msg="$2"
-	local failure_msg="$3"
+	local STATUS="$1"
+	local SUCCESS_MSG="$2"
+	local FAILURE_MSG="$3"
 
-	if [[ "$status" -eq 0 ]]; then
-		echo -e "${GREEN}[SUCCESS]${RESET} ${success_msg}"
+	if [[ "${STATUS}" -eq 0 ]]; then
+		echo -e "${GREEN}[SUCCESS]${RESET} ${SUCCESS_MSG}"
 	else
-		echo -e "${RED}[FAILURE]${RESET} ${failure_msg} (exit code: ${status})"
-		exit "$status"
+		echo -e "${RED}[FAILURE]${RESET} ${FAILURE_MSG} (exit code: ${STATUS})"
+		exit "${STATUS}"
 	fi
+}
+
+# ---------- Basic app requirements (/app + roboshop) ----------
+basicAppRequirements() {
+	echo -e "${CYAN}Ensuring basic application requirements (${APP_DIR} dir and roboshop user)...${RESET}"
+
+	# 1) Ensure APP_DIR directory exists
+	echo -e "${CYAN}Checking ${APP_DIR} directory...${RESET}"
+	if [[ -d "${APP_DIR}" ]]; then
+		echo -e "${YELLOW}${APP_DIR} directory already exists. Skipping creation....${RESET}"
+	else
+		echo -e "${CYAN}${APP_DIR} directory not found. Creating ${APP_DIR}....${RESET}"
+		${SUDO:-} mkdir -p "${APP_DIR}"
+		validateStep $? \
+			"${APP_DIR} directory created successfully." \
+			"Failed to create ${APP_DIR} directory."
+	fi
+
+	# 2) Ensure application user 'roboshop' exists
+	echo -e "${CYAN}Checking if 'roboshop' user exists....${RESET}"
+	if id roboshop >/dev/null 2>&1; then
+		echo -e "${YELLOW}User 'roboshop' already exists. Skipping user creation....${RESET}"
+	else
+		echo -e "${CYAN}Creating application user 'roboshop'...${RESET}"
+		${SUDO:-} useradd roboshop
+		validateStep $? \
+			"Application user 'roboshop' created successfully." \
+			"Failed to create application user 'roboshop'."
+	fi
+
+	# 3) Ensure APP_DIR ownership is set to roboshop
+	echo -e "${CYAN}Setting ownership of ${APP_DIR} to user 'roboshop'...${RESET}"
+	${SUDO:-} chown -R roboshop:roboshop "${APP_DIR}"
+	validateStep $? \
+		"Ownership of ${APP_DIR} set to roboshop successfully." \
+		"Failed to set ownership of ${APP_DIR} to roboshop."
 }
 
 # ---------- Root / sudo handling ----------
 # Sets SUDO variable as "sudo" for non-root users (if sudo is available),
 # or empty string if script is already running as root.
 isItRootUser() {
-	echo -e "${CYAN}Checking whether script is running as root...${RESET}"
+	echo -e "${CYAN}Checking whether script is running as ROOT...${RESET}"
 
 	if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
 		if command -v sudo >/dev/null 2>&1; then
 			SUDO="sudo"
-			echo -e "${YELLOW}Not root. Using 'sudo' for privileged operations.${RESET}"
+			echo -e "${YELLOW}Not ROOT. Using 'sudo' for privileged operations.${RESET}"
 		else
-			echo -e "${RED}ERROR: Insufficient privileges. Run as root or install sudo.${RESET}"
+			echo -e "${RED}ERROR: Insufficient privileges. Run as ROOT or install sudo.${RESET}"
 			exit 1
 		fi
 	else
@@ -59,8 +103,7 @@ isItRootUser() {
 }
 
 # ---------- Utility package installer ----------
-# Reads package names from mongodbutilpackages.txt (one per line) and installs them.
-# Example mongodbutilpackages.txt content:
+# Reads package names from 03_mongodbutilpackages.txt (one per line) and installs them.
 installUtilPackages() {
 	echo -e "${CYAN}Checking utility package list file: ${UTIL_PKG_FILE}${RESET}"
 
@@ -72,27 +115,27 @@ installUtilPackages() {
 	fi
 
 	# Read packages into an array (skip empty lines)
-	local packages=()
-	while IFS= read -r pkg; do
+	local PACKAGES=()
+	while IFS= read -r PKG; do
 		# Trim simple whitespace and skip blank lines
-		[[ -z "${pkg}" ]] && continue
-		packages+=("${pkg}")
+		[[ -z "${PKG}" ]] && continue
+		PACKAGES+=("${PKG}")
 	done <"${UTIL_PKG_FILE}"
 
-	if [[ "${#packages[@]}" -eq 0 ]]; then
+	if [[ "${#PACKAGES[@]}" -eq 0 ]]; then
 		echo -e "${YELLOW}No packages found in ${UTIL_PKG_FILE}. Skipping utility installation.${RESET}"
 		return
 	fi
 
-	echo -e "${CYAN}Utility packages to install: ${packages[*]}${RESET}"
+	echo -e "${CYAN}Utility packages to install: ${PACKAGES[*]}${RESET}"
 
 	# Install each package individually to track success/failure per package
-	for pkg in "${packages[@]}"; do
-		echo -e "${CYAN}Installing utility package: ${pkg}${RESET}"
-		${SUDO:-} yum install -y "${pkg}"
+	for PKG in "${PACKAGES[@]}"; do
+		echo -e "${CYAN}Installing utility package: ${PKG}${RESET}"
+		${SUDO:-} yum install -y "${PKG}"
 		validateStep $? \
-			"Utility package '${pkg}' installed successfully." \
-			"Failed to install utility package '${pkg}'."
+			"Utility package '${PKG}' installed successfully." \
+			"Failed to install utility package '${PKG}'."
 	done
 
 	echo -e "${GREEN}All requested utility packages processed successfully.${RESET}"
@@ -108,10 +151,10 @@ createMongoRepo() {
 	fi
 
 	echo -e "${CYAN}MongoDB repo not found. Creating MongoDB repo....${RESET}"
-	echo "mongodb.repo script location: ${SCRIPT_DIR}/mongodb.repo"
+	echo "mongodb.repo script location: ${SCRIPT_DIR}/02_mongodb.repo"
 
 	# Try copying the repo file from script directory to yum repo directory
-	${SUDO:-} cp "${SCRIPT_DIR}/mongodb.repo" /etc/yum.repos.d/mongo.repo
+	${SUDO:-} cp "${SCRIPT_DIR}/02_mongodb.repo" /etc/yum.repos.d/mongo.repo
 	validateStep $? \
 		"MongoDB repo created at /etc/yum.repos.d/mongo.repo" \
 		"Failed to create MongoDB repo. Copy operation failed."
@@ -178,17 +221,22 @@ installMongoDB() {
 # ---------- Main ----------
 main() {
 	# Ensure log dir exists
-	mkdir -p "${logs_directory}"
+	mkdir -p "${LOGS_DIRECTORY}"
 
 	# Send everything (stdout + stderr) to log file from here on
-	exec >>"${log_file}" 2>&1
+	exec >>"${LOG_FILE}" 2>&1
 
-	echo -e "${BLUE}MongoDB script execution has been started @ ${timestamp}${RESET}"
-	echo "Log Directory: ${logs_directory}"
-	echo "Log File Location and Name: ${log_file}"
+	echo -e "${BLUE}MongoDB script execution has been started @ ${TIMESTAMP}${RESET}"
+	echo "App Directory: ${APP_DIR}"
+	echo "Log Directory: ${LOGS_DIRECTORY}"
+	echo "Log File Location and Name: ${LOG_FILE}"
+	echo "Script Directory: ${SCRIPT_DIR}"
 
 	echo -e "\n${CYAN}Calling isItRootUser() to validate the user...${RESET}"
 	isItRootUser
+
+	echo -e "\n${CYAN}Calling basicAppRequirements()....${RESET}"
+	basicAppRequirements
 
 	echo -e "\n${CYAN}Calling installUtilPackages() to install utility packages from file...${RESET}"
 	installUtilPackages
