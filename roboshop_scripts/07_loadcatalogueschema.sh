@@ -134,12 +134,6 @@ downloadCatalogueCode() {
 		"Catalogue application zip downloaded successfully." \
 		"Failed to download catalogue application zip."
 
-	# Clean existing contents (optional but keeps /app tidy on bastion)
-	echo -e "${CYAN}Cleaning existing contents under ${APP_DIR}...${RESET}"
-	${SUDO:-} rm -rf "${APP_DIR}"/*
-	validateStep $? \
-		"Existing contents under ${APP_DIR} cleaned successfully." \
-		"Failed to clean existing contents under ${APP_DIR}."
 
 	# Unzip into APP_DIR
 	echo -e "${CYAN}Unzipping catalogue application into ${APP_DIR}...${RESET}"
