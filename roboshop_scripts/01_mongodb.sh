@@ -29,6 +29,16 @@ LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log"
 # Utility package list lives inside the git repo, next to script
 UTIL_PKG_FILE="${SCRIPT_DIR}/03_mongodbutilpackages.txt"
 
+printBoxHeader() {
+	local TITLE="$1"
+	local TIME="$2"
+
+	echo -e "${BLUE}===========================================${RESET}"
+	printf "${CYAN}%20s${RESET}\n" "$TITLE"
+	printf "${YELLOW}%20s${RESET}\n" "Started @ $TIME"
+	echo -e "${BLUE}===========================================${RESET}"
+}
+
 # ---------- Helper: validate step ----------
 # Usage pattern:
 #   some_command
@@ -226,7 +236,7 @@ main() {
 	# Send everything (stdout + stderr) to log file from here on
 	exec >>"${LOG_FILE}" 2>&1
 
-	echo -e "${BLUE}MongoDB script execution has been started @ ${TIMESTAMP}${RESET}"
+	printBoxHeader "MongoDB Script Execution" "${TIMESTAMP}"
 	echo "App Directory: ${APP_DIR}"
 	echo "Log Directory: ${LOGS_DIRECTORY}"
 	echo "Log File Location and Name: ${LOG_FILE}"
