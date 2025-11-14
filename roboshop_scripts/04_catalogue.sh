@@ -21,44 +21,90 @@ BLUE="\e[34m"
 CYAN="\e[36m"
 RESET="\e[0m"
 
-
 # ---------- Config ----------
-timestamp="$(date +"%F-%H-%M-%S")"                          # Full timestamp of this run
-logs_directory="/app/logs"                                  # Central log directory
-script_name="$(basename "$0")"                              # e.g. 04_catalogue.sh
-script_base="${script_name%.*}"                             # e.g. 04_catalogue
-log_file="${logs_directory}/${script_base}-$(date +%F).log" # one log file per day
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"  # Directory where script lives
-UTIL_PKG_FILE="${SCRIPT_DIR}/05_catalogueutilpackages.txt"  # File containing utility package list (one per line)
-CATALOGUE_SERVICE_FILE="${SCRIPT_DIR}/06_catalogue.service" # SystemD service template
+TIMESTAMP="$(date +"%F-%H-%M-%S")" # Full timestamp of this run
+
+# Application root and logs directory (runtime paths)
+APP_DIR="/app"                   # Application root directory
+LOGS_DIRECTORY="${APP_DIR}/logs" # Central log directory -> /app/logs
+
+# Script / repo location (where git pull happens)
+SCRIPT_NAME="$(basename "$0")"                             # e.g. catalogue.sh
+SCRIPT_BASE="${SCRIPT_NAME%.*}"                            # e.g. catalogue
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" # Directory where script lives
+
+# Log file: one per day, per script
+LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log"
+
+# Utility package list lives inside the git repo, next to script
+UTIL_PKG_FILE="${SCRIPT_DIR}/05_catalogueutilpackages.txt"
+
+# Catalogue SystemD service template
+CATALOGUE_SERVICE_FILE="${SCRIPT_DIR}/06_catalogue.service"
 
 # ---------- Helper: validate step ----------
 # Usage pattern:
 #   some_command
 #   validateStep $? "success message" "failure message"
 validateStep() {
-	local status="$1"
-	local success_msg="$2"
-	local failure_msg="$3"
+	local STATUS="$1"
+	local SUCCESS_MSG="$2"
+	local FAILURE_MSG="$3"
 
-	if [[ "$status" -eq 0 ]]; then
-		echo -e "${GREEN}[SUCCESS]${RESET} ${success_msg}"
+	if [[ "${STATUS}" -eq 0 ]]; then
+		echo -e "${GREEN}[SUCCESS]${RESET} ${SUCCESS_MSG}"
 	else
-		echo -e "${RED}[FAILURE]${RESET} ${failure_msg} (exit code: ${status})"
-		exit "$status"
+		echo -e "${RED}[FAILURE]${RESET} ${FAILURE_MSG} (exit code: ${STATUS})"
+		exit "${STATUS}"
 	fi
+}
+
+# ---------- Basic app requirements (/app + roboshop) ----------
+basicAppRequirements() {
+	echo -e "${CYAN}Ensuring basic application requirements (${APP_DIR} dir and roboshop user)...${RESET}"
+
+	# 1) Ensure APP_DIR directory exists
+	echo -e "${CYAN}Checking ${APP_DIR} directory...${RESET}"
+	if [[ -d "${APP_DIR}" ]]; then
+		echo -e "${YELLOW}${APP_DIR} directory already exists. Skipping creation....${RESET}"
+	else
+		echo -e "${CYAN}${APP_DIR} directory not found. Creating ${APP_DIR}....${RESET}"
+		${SUDO:-} mkdir -p "${APP_DIR}"
+		validateStep $? \
+			"${APP_DIR} directory created successfully." \
+			"Failed to create ${APP_DIR} directory."
+	fi
+
+	# 2) Ensure application user 'roboshop' exists
+	echo -e "${CYAN}Checking if 'roboshop' user exists....${RESET}"
+	if id roboshop >/dev/null 2>&1; then
+		echo -e "${YELLOW}User 'roboshop' already exists. Skipping user creation....${RESET}"
+	else
+		echo -e "${CYAN}Creating application user 'roboshop'...${RESET}"
+		${SUDO:-} useradd roboshop
+		validateStep $? \
+			"Application user 'roboshop' created successfully." \
+			"Failed to create application user 'roboshop'."
+	fi
+
+	# 3) Ensure APP_DIR ownership is set to roboshop
+	echo -e "${CYAN}Setting ownership of ${APP_DIR} to user 'roboshop'...${RESET}"
+	${SUDO:-} chown -R roboshop:roboshop "${APP_DIR}"
+	validateStep $? \
+		"Ownership of ${APP_DIR} set to roboshop successfully." \
+		"Failed to set ownership of ${APP_DIR} to roboshop."
 }
 
 # ---------- Root / sudo handling ----------
 # Sets SUDO variable as "sudo" for non-root users (if sudo is available),
 # or empty string if script is already running as root.
 isItRootUser() {
-	echo -e "${CYAN}Checking whether script is running as root...${RESET}"
+	echo -e "${CYAN}Checking whether script is running as ROOT...${RESET}"
 
 	if [[ ${EUID:-$(id -u)} -ne 0 ]]; then
 		if command -v sudo >/dev/null 2>&1; then
 			SUDO="sudo"
-			echo -e "${YELLOW}Not a ROOT user. Using 'sudo' for privileged operations.${RESET}"
+			echo -e "${YELLOW}Not ROOT. Using 'sudo' for privileged operations.${RESET}"
 		else
 			echo -e "${RED}ERROR: Insufficient privileges. Run as ROOT or install sudo.${RESET}"
 			exit 1
@@ -70,7 +116,7 @@ isItRootUser() {
 }
 
 # ---------- Utility package installer ----------
-# Reads package names from 05_catalogueutilpackages.txt (one per line) and installs them.
+# Reads package names from 03_mongodbutilpackages.txt (one per line) and installs them.
 installUtilPackages() {
 	echo -e "${CYAN}Checking utility package list file: ${UTIL_PKG_FILE}${RESET}"
 
@@ -82,27 +128,27 @@ installUtilPackages() {
 	fi
 
 	# Read packages into an array (skip empty lines)
-	local packages=()
-	while IFS= read -r pkg; do
+	local PACKAGES=()
+	while IFS= read -r PKG; do
 		# Trim simple whitespace and skip blank lines
-		[[ -z "${pkg}" ]] && continue
-		packages+=("${pkg}")
+		[[ -z "${PKG}" ]] && continue
+		PACKAGES+=("${PKG}")
 	done <"${UTIL_PKG_FILE}"
 
-	if [[ "${#packages[@]}" -eq 0 ]]; then
+	if [[ "${#PACKAGES[@]}" -eq 0 ]]; then
 		echo -e "${YELLOW}No packages found in ${UTIL_PKG_FILE}. Skipping utility installation.${RESET}"
 		return
 	fi
 
-	echo -e "${CYAN}Utility packages to install: ${packages[*]}${RESET}"
+	echo -e "${CYAN}Utility packages to install: ${PACKAGES[*]}${RESET}"
 
 	# Install each package individually to track success/failure per package
-	for pkg in "${packages[@]}"; do
-		echo -e "${CYAN}Installing utility package: ${pkg}${RESET}"
-		${SUDO:-} yum install -y "${pkg}"
+	for PKG in "${PACKAGES[@]}"; do
+		echo -e "${CYAN}Installing utility package: ${PKG}${RESET}"
+		${SUDO:-} yum install -y "${PKG}"
 		validateStep $? \
-			"Utility package '${pkg}' installed successfully." \
-			"Failed to install utility package '${pkg}'."
+			"Utility package '${PKG}' installed successfully." \
+			"Failed to install utility package '${PKG}'."
 	done
 
 	echo -e "${GREEN}All requested utility packages processed successfully.${RESET}"
@@ -234,21 +280,14 @@ installCatalogue() {
 		"Catalogue application zip downloaded successfully." \
 		"Failed to download catalogue application zip."
 
-	# 4) Clean existing app content (optional but common in Roboshop flows)
-	# echo -e "${CYAN}Cleaning existing contents under /app...${RESET}"
-	# ${SUDO:-} rm -rf /app/*
-	# validateStep $? \
-	# 	"Existing contents under /app cleaned successfully." \
-	# 	"Failed to clean existing contents under /app."
-
-	# 5) Unzip into /app
+	# 4) Unzip into /app
 	echo -e "${CYAN}Unzipping catalogue application into /app...${RESET}"
 	${SUDO:-} unzip -o /tmp/catalogue.zip -d /app >/dev/null
 	validateStep $? \
 		"Catalogue application unzipped into /app successfully." \
 		"Failed to unzip catalogue application into /app."
 
-	# 6) Set ownership to roboshop user
+	# 5) Set ownership to roboshop user
 	echo -e "${CYAN}Setting ownership of /app to user 'roboshop'...${RESET}"
 	${SUDO:-} chown -R roboshop:roboshop /app
 	validateStep $? \
@@ -310,18 +349,26 @@ createCatalogueSystemDService() {
 # ---------- Main ----------
 main() {
 	# Ensure log dir exists
-	mkdir -p "${logs_directory}"
+	mkdir -p "${LOGS_DIRECTORY}"
 
 	# Send everything (stdout + stderr) to log file from here on
-	exec >>"${log_file}" 2>&1
+	exec >>"${LOG_FILE}" 2>&1
 
-	echo -e "\n${BLUE}Catalogue script execution has been started @ ${timestamp}${RESET}"
-	echo "Log Directory: ${logs_directory}"
-	echo "Log File Location and Name: ${log_file}"
-	echo "Script source directory: ${SCRIPT_DIR}"
+	echo -e "${BLUE}Catalogue script execution has been started @ ${TIMESTAMP}${RESET}"
+	echo "App Directory: ${APP_DIR}"
+	echo "Log Directory: ${LOGS_DIRECTORY}"
+	echo "Log File Location and Name: ${LOG_FILE}"
+	echo "Script Name: ${SCRIPT_NAME}"
+	echo "Script Base: ${SCRIPT_BASE}"
+	echo "Script Directory: ${SCRIPT_DIR}"
+	echo "Util package location and name: ${UTIL_PKG_FILE}"
+	echo "Catalogue service file location and name: ${CATALOGUE_SERVICE_FILE}"
 
 	echo -e "\n${CYAN}Calling isItRootUser() to validate the user...${RESET}"
 	isItRootUser
+
+	echo -e "\n${CYAN}Calling basicAppRequirements()....${RESET}"
+	basicAppRequirements
 
 	echo -e "\n${CYAN}Calling installUtilPackages() to install utility packages from file...${RESET}"
 	installUtilPackages
