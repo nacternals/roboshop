@@ -42,6 +42,16 @@ UTIL_PKG_FILE="${SCRIPT_DIR}/05_catalogueutilpackages.txt"
 # Catalogue SystemD service template
 CATALOGUE_SERVICE_FILE="${SCRIPT_DIR}/06_catalogue.service"
 
+printBoxHeader() {
+	local TITLE="$1"
+	local TIME="$2"
+
+	echo -e "${BLUE}===========================================${RESET}"
+	printf "${CYAN}%20s${RESET}\n" "$TITLE"
+	printf "${YELLOW}%20s${RESET}\n" "Started @ $TIME"
+	echo -e "${BLUE}===========================================${RESET}"
+}
+
 # ---------- Helper: validate step ----------
 # Usage pattern:
 #   some_command
@@ -354,7 +364,7 @@ main() {
 	# Send everything (stdout + stderr) to log file from here on
 	exec >>"${LOG_FILE}" 2>&1
 
-	echo -e "${BLUE}Catalogue script execution has been started @ ${TIMESTAMP}${RESET}"
+	printBoxHeader "Catalogue Script Execution" "${TIMESTAMP}"
 	echo "App Directory: ${APP_DIR}"
 	echo "Log Directory: ${LOGS_DIRECTORY}"
 	echo "Log File Location and Name: ${LOG_FILE}"
