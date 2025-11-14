@@ -46,6 +46,17 @@ CATALOGUE_SCHEMA_FILE="${CATALOGUE_APP_DIR}/schema/catalogue.js"
 MONGODB_HOST="${MONGODB_HOST:-mongodb.optimusprime.sbs}"
 MONGODB_PORT="${MONGODB_PORT:-27017}"
 
+
+printBoxHeader() {
+	local TITLE="$1"
+	local TIME="$2"
+
+	echo -e "${BLUE}===========================================${RESET}"
+	printf "${CYAN}%20s${RESET}\n" "$TITLE"
+	printf "${YELLOW}%20s${RESET}\n" "Started @ $TIME"
+	echo -e "${BLUE}===========================================${RESET}"
+}
+
 # ---------- Helper: validate step ----------
 validateStep() {
     local STATUS="$1"
@@ -235,7 +246,8 @@ main() {
     # Send everything (stdout + stderr) to log file from here on
     exec >> "${LOG_FILE}" 2>&1
 
-    echo -e "${BLUE}Load Catalogue Schema script execution started @ ${TIMESTAMP}${RESET}"
+    printBoxHeader "Load Catalogue Schema Script Execution" "${TIMESTAMP}"
+
     echo "App Directory: ${APP_DIR}"
     echo "Catalogue App Directory: ${CATALOGUE_APP_DIR}"
     echo "Log Directory: ${LOGS_DIRECTORY}"
