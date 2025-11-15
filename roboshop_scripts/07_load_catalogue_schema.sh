@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# 07_loadcatalogueschema.sh
+# 07_load_catalogue_schema.sh
 #
 # Purpose:
 #   - Prepare /app and roboshop user (like other roboshop scripts)
@@ -30,19 +30,19 @@ APP_DIR="/app"                            # Application root directory
 CATALOGUE_APP_DIR="${APP_DIR}/catalogue"  # Catalogue app root
 LOGS_DIRECTORY="${APP_DIR}/logs"          # Central log directory -> /app/logs
 
-SCRIPT_NAME="$(basename "$0")"                             # e.g. 07_loadcatalogueschema.sh
-SCRIPT_BASE="${SCRIPT_NAME%.*}"                            # e.g. 07_loadcatalogueschema
+SCRIPT_NAME="$(basename "$0")"                             # e.g. 07_load_catalogue_schema.sh
+SCRIPT_BASE="${SCRIPT_NAME%.*}"                            # e.g. 07_load_catalogue_schema
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" # Directory where script lives
 
 LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log"
 
-# MongoDB repo file inside repo (reuse the same 02_mongodb.repo you already have)
+# MongoDB repo file inside repo (reuse the same 02_mongodb.repo)
 MONGO_REPO_FILE="${SCRIPT_DIR}/02_mongodb.repo"
 
 # Where catalogue schema is expected after unzip
 CATALOGUE_SCHEMA_FILE="${CATALOGUE_APP_DIR}/schema/catalogue.js"
 
-# MongoDB host (can override when running: MONGODB_HOST=my-mongo bash 07_loadcatalogueschema.sh)
+# MongoDB host
 MONGODB_HOST="${MONGODB_HOST:-mongodb.optimusprime.sbs}"
 MONGODB_PORT="${MONGODB_PORT:-27017}"
 

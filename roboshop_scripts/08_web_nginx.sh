@@ -4,11 +4,11 @@
 # for the RoboShop Web/Frontend service.
 #
 # It:
-#   - Installs required utility packages (from 08_webutilpackages.txt, optional)
+#   - Installs required utility packages (from 09_web_util_packages.txt)
 #   - Installs Nginx
 #   - Removes default Nginx web content
 #   - Downloads and extracts web frontend content into /usr/share/nginx/html
-#   - Copies reverse proxy config (10_roboshop.conf) into /etc/nginx/default.d/roboshop.conf
+#   - Copies reverse proxy config (10_web_nginx_roboshop.conf) into /etc/nginx/default.d/roboshop.conf
 #   - Tests and restarts Nginx
 #
 # Logging, colors, helper functions, and directory handling are similar to mongodb.sh/catalogue.sh.
@@ -36,7 +36,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" # Directory where scr
 LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log"
 
 # Optional utility package list (create if you need extra tools: curl, unzip, vim, etc.)
-UTIL_PKG_FILE="${SCRIPT_DIR}/09_webutilpackages.txt"
+UTIL_PKG_FILE="${SCRIPT_DIR}/09_web_util_packages.txt"
 
 # Nginx web root and content URL
 NGINX_WEB_ROOT="/usr/share/nginx/html"
@@ -44,7 +44,7 @@ WEB_ZIP_URL="https://roboshop-builds.s3.amazonaws.com/web.zip"
 WEB_ZIP_FILE="/tmp/web.zip"
 
 # Nginx reverse proxy configuration
-NGINX_CONF_SOURCE="${SCRIPT_DIR}/10_roboshop.conf"
+NGINX_CONF_SOURCE="${SCRIPT_DIR}/10_web_nginx_roboshop.conf"
 NGINX_CONF_TARGET_DIR="/etc/nginx/default.d"
 NGINX_CONF_TARGET="${NGINX_CONF_TARGET_DIR}/roboshop.conf"
 
