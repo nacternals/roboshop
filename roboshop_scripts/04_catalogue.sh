@@ -33,7 +33,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" # Directory where scr
 
 LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log"
 
-UTIL_PKG_FILE="${SCRIPT_DIR}/05_catalogueutilpackages.txt"
+UTIL_PKG_FILE="${SCRIPT_DIR}/05_catalogue_util_packages.txt"
 CATALOGUE_SERVICE_FILE="${SCRIPT_DIR}/06_catalogue.service"
 
 printBoxHeader() {
