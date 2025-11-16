@@ -2,6 +2,14 @@
 
 set -euo pipefail
 
+# ==========================================================
+# MySQL 5.7 Setup Script for RoboShop
+# - Creates base app/logs structure
+# - Configures MySQL 5.7 repo
+# - Installs MySQL 5.7 server
+# - Secures MySQL root user in a production-friendly way
+# ==========================================================
+
 # ---------- Colors ----------
 RED="\e[31m"
 GREEN="\e[32m"
@@ -22,12 +30,24 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log"
 
+# Utility packages list specific to MySQL script
+# One package name per line in this file.
+UTIL_PKG_FILE="${SCRIPT_DIR}/20_mysqlutilpackages.txt"
+
 # Package manager (dnf or yum)
 PKG_MGR="dnf"
 if ! command -v dnf >/dev/null 2>&1; then
 	PKG_MGR="yum"
 fi
 
+# ==========================================================
+# Helper Functions
+# ==========================================================
+
+# ---------- Function: printBoxHeader ----------
+# Purpose : Print a nice header for script execution.
+# Args    : $1 -> Title text
+#           $2 -> Time string
 printBoxHeader() {
 	local TITLE="$1"
 	local TIME="$2"
@@ -38,6 +58,11 @@ printBoxHeader() {
 	echo -e "${BLUE}===========================================${RESET}"
 }
 
+# ---------- Function: validateStep ----------
+# Purpose : Standardized status check for steps.
+# Args    : $1 -> Exit code
+#           $2 -> Success message
+#           $3 -> Failure message
 validateStep() {
 	local STATUS="$1"
 	local SUCCESS_MSG="$2"
@@ -45,12 +70,16 @@ validateStep() {
 
 	if [[ "${STATUS}" -eq 0 ]]; then
 		echo -e "${GREEN}[SUCCESS]${RESET} ${SUCCESS_MSG}"
+		return 0
 	else
 		echo -e "${RED}[FAILURE]${RESET} ${FAILURE_MSG} (exit code: ${STATUS})"
 		exit "${STATUS}"
 	fi
 }
 
+# ---------- Function: isItRootUser ----------
+# Purpose : Ensure script has privileges (root or sudo).
+# Effects : Sets global SUDO variable accordingly.
 isItRootUser() {
 	echo -e "${CYAN}Checking whether script is running as ROOT...${RESET}"
 
@@ -68,9 +97,12 @@ isItRootUser() {
 	fi
 }
 
+# ---------- Function: basicAppRequirements ----------
+# Purpose : Ensure /app, logs dir, and roboshop user exist with proper ownership.
 basicAppRequirements() {
 	echo -e "${CYAN}Ensuring basic application requirements (${APP_DIR} dir, logs dir and roboshop user)...${RESET}"
 
+	# Ensure app directory
 	if [[ -d "${APP_DIR}" ]]; then
 		echo -e "${YELLOW}${APP_DIR} directory already exists. Skipping creation....${RESET}"
 	else
@@ -81,12 +113,14 @@ basicAppRequirements() {
 			"Failed to create ${APP_DIR} directory."
 	fi
 
+	# Ensure logs directory
 	echo -e "${CYAN}Ensuring logs directory ${LOGS_DIRECTORY} exists...${RESET}"
 	${SUDO:-} mkdir -p "${LOGS_DIRECTORY}"
 	validateStep $? \
 		"Logs directory ${LOGS_DIRECTORY} is ready." \
 		"Failed to create logs directory ${LOGS_DIRECTORY}."
 
+	# Ensure roboshop user
 	echo -e "${CYAN}Checking if 'roboshop' user exists....${RESET}"
 	if id roboshop >/dev/null 2>&1; then
 		echo -e "${YELLOW}User 'roboshop' already exists. Skipping user creation....${RESET}"
@@ -98,6 +132,7 @@ basicAppRequirements() {
 			"Failed to create application user 'roboshop'."
 	fi
 
+	# Ownership of /app
 	echo -e "${CYAN}Setting ownership of ${APP_DIR} to user 'roboshop'...${RESET}"
 	${SUDO:-} chown -R roboshop:roboshop "${APP_DIR}"
 	validateStep $? \
@@ -105,22 +140,22 @@ basicAppRequirements() {
 		"Failed to set ownership of ${APP_DIR} to roboshop."
 }
 
-# ---------- Utility package installer ----------
-# Reads package names from 03_mongodbutilpackages.txt (one per line) and installs them.
+# ---------- Function: installUtilPackages ----------
+# Purpose : Install common utility packages required by this script.
+# Details : Reads package names from ${UTIL_PKG_FILE} (one per line).
 installUtilPackages() {
 	echo -e "${CYAN}Checking utility package list file: ${UTIL_PKG_FILE}${RESET}"
 
 	# Ensure the util package file exists
 	if [[ ! -f "${UTIL_PKG_FILE}" ]]; then
-		echo -e "${RED}ERROR: Utility package file not found: ${UTIL_PKG_FILE}${RESET}"
-		echo -e "${YELLOW}Create the file and add one package name per line, then rerun the script.${RESET}"
-		exit 1
+		echo -e "${YELLOW}Utility package file not found: ${UTIL_PKG_FILE}. Skipping utility installation.${RESET}"
+		echo -e "${YELLOW}If you need utilities, create this file with one package name per line and rerun.${RESET}"
+		return
 	fi
 
 	# Read packages into an array (skip empty lines)
 	local PACKAGES=()
 	while IFS= read -r PKG; do
-		# Trim simple whitespace and skip blank lines
 		[[ -z "${PKG}" ]] && continue
 		PACKAGES+=("${PKG}")
 	done <"${UTIL_PKG_FILE}"
@@ -144,6 +179,12 @@ installUtilPackages() {
 	echo -e "${GREEN}All requested utility packages processed successfully.${RESET}"
 }
 
+# ==========================================================
+# MySQL-specific Functions
+# ==========================================================
+
+# ---------- Function: configureMySQLRepo ----------
+# Purpose : Configure YUM repo for MySQL 5.7 and disable default MySQL 8 module.
 configureMySQLRepo() {
 	echo -e "${CYAN}Configuring MySQL YUM repo (MySQL 5.7)...${RESET}"
 
@@ -178,9 +219,10 @@ configureMySQLRepo() {
 		"Failed to create MySQL 5.7 repo. Copy operation failed."
 }
 
-
+# ---------- Function: installMySQLServer ----------
+# Purpose : Install and configure MySQL 5.7 Community Server.
+# Assumes : configureMySQLRepo has already been executed.
 installMySQLServer() {
-	# Install MySQL 5.7 community server
 	echo -e "${CYAN}Checking if MySQL Server (MySQL 5.7) is already installed...${RESET}"
 
 	# Check if mysqld or mysql command exists
@@ -245,34 +287,135 @@ installMySQLServer() {
 	echo -e "${GREEN}MySQL 5.7 Community Server installation and basic configuration completed.${RESET}"
 }
 
-
+# ---------- Function: setRootPassword ----------
+# Purpose : Securely ensure MySQL root password is set.
+# Behavior:
+#   - Uses MYSQL_ROOT_PASSWORD env var if set
+#   - Else uses existing /root/.mysql_root_password if present
+#   - Else generates a strong random password and stores it in that file
+#   - Optionally creates /root/.my.cnf (controlled via CREATE_MYCNF env var)
 setRootPassword() {
-	local ROOT_PASS="RoboShop@1"
-	echo -e "${CYAN}Setting MySQL root password (if not already set)...${RESET}"
+	echo -e "${CYAN}Ensuring MySQL root password is securely configured...${RESET}"
 
-	if mysql -uroot -p"${ROOT_PASS}" -e "SELECT 1" >/dev/null 2>&1; then
-		echo -e "${YELLOW}Root password already set and working. Skipping mysql_secure_installation.${RESET}"
+	# Where to persist the generated password (root-only)
+	local ROOT_PASS_FILE="/root/.mysql_root_password"
+	local ROOT_PASS=""
+
+	# 1. Decide the root password source
+	if [[ -n "${MYSQL_ROOT_PASSWORD:-}" ]]; then
+		ROOT_PASS="${MYSQL_ROOT_PASSWORD}"
+		echo -e "${CYAN}Using MySQL root password from MYSQL_ROOT_PASSWORD environment variable.${RESET}"
+	elif [[ -f "${ROOT_PASS_FILE}" ]]; then
+		ROOT_PASS="$(<"${ROOT_PASS_FILE}")"
+		echo -e "${CYAN}Using existing MySQL root password from ${ROOT_PASS_FILE}.${RESET}"
+	else
+		# Generate a strong random password (no spaces, mixed charset)
+		ROOT_PASS="$(
+			LC_ALL=C tr -dc 'A-Za-z0-9!@#$%^&*_-+=' </dev/urandom | head -c 24
+		)"
+
+		${SUDO:-} bash -c "umask 0077 && echo '${ROOT_PASS}' > '${ROOT_PASS_FILE}'"
+		validateStep $? \
+			"Generated a strong MySQL root password and stored it in ${ROOT_PASS_FILE} (root-only)." \
+			"Failed to persist generated MySQL root password to ${ROOT_PASS_FILE}."
+
+		echo -e "${YELLOW}A new MySQL root password was generated and saved to ${ROOT_PASS_FILE}.${RESET}"
+		echo -e "${YELLOW}Back this file up securely (e.g., password manager / vault).${RESET}"
+	fi
+
+	# 2. Check if MySQL root password is already correctly set to ROOT_PASS
+	if MYSQL_PWD="${ROOT_PASS}" mysql -uroot -e "SELECT 1" >/dev/null 2>&1; then
+		echo -e "${YELLOW}MySQL root password is already configured and works. Skipping reconfiguration.${RESET}"
 		return
 	fi
 
-	${SUDO:-} mysql_secure_installation --set-root-pass "${ROOT_PASS}"
-	validateStep $? \
-		"MySQL root password set successfully." \
-		"Failed to set MySQL root password."
+	echo -e "${CYAN}Configuring MySQL root password securely...${RESET}"
+
+	# 3. Preferred path: mysql_secure_installation with --set-root-pass (non-interactive)
+	local EXIT_CODE=1
+	if command -v mysql_secure_installation >/dev/null 2>&1; then
+		${SUDO:-} mysql_secure_installation --set-root-pass "${ROOT_PASS}" >/dev/null 2>&1 || EXIT_CODE=$?
+		if [[ ${EXIT_CODE} -ne 0 ]]; then
+			echo -e "${YELLOW}mysql_secure_installation failed or unsupported. Falling back to direct SQL method...${RESET}"
+		fi
+	else
+		echo -e "${YELLOW}mysql_secure_installation not found. Using direct SQL method to set root password...${RESET}"
+	fi
+
+	# 4. Fallback: direct SQL method if mysql_secure_installation was not available or failed
+	if [[ ${EXIT_CODE} -ne 0 ]]; then
+		# First try without password (fresh install / no root password)
+		if mysql -uroot -e "SELECT 1" >/dev/null 2>&1; then
+			mysql -uroot <<EOF
+ALTER USER 'root'@'localhost' IDENTIFIED BY '${ROOT_PASS}';
+FLUSH PRIVILEGES;
+EOF
+			EXIT_CODE=$?
+		else
+			echo -e "${RED}Unable to connect to MySQL as root to set the password. Manual intervention may be required.${RESET}"
+			EXIT_CODE=1
+		fi
+	fi
+
+	validateStep ${EXIT_CODE} \
+		"MySQL root password set/updated successfully." \
+		"Failed to set/update MySQL root password."
+
+	# 5. (Optional) create /root/.my.cnf for root-only MySQL admin usage
+	if [[ "${CREATE_MYCNF:-true}" == "true" ]]; then
+		local MY_CNF="/root/.my.cnf"
+
+		if [[ ! -f "${MY_CNF}" ]]; then
+			${SUDO:-} bash -c "umask 0077 && cat > '${MY_CNF}' <<EOF
+[client]
+user=root
+password=${ROOT_PASS}
+EOF"
+			validateStep $? \
+				"Created ${MY_CNF} for secure password-less mysql client usage as root." \
+				"Failed to create ${MY_CNF} for root."
+		else
+			echo -e "${YELLOW}${MY_CNF} already exists. Not overwriting it.${RESET}"
+		fi
+	fi
+
+	echo -e "${GREEN}MySQL root password configuration completed securely.${RESET}"
 }
 
+# ==========================================================
+# Main Execution
+# ==========================================================
+
 main() {
+	# Ensure logs directory exists before redirect
 	mkdir -p "${LOGS_DIRECTORY}"
+	# Redirect all stdout and stderr to log file
 	exec >>"${LOG_FILE}" 2>&1
 
 	printBoxHeader "MySQL 5.7 Setup Script Execution" "${TIMESTAMP}"
 
-	echo "Script Name      : ${SCRIPT_NAME}"
-	echo "Script Directory : ${SCRIPT_DIR}"
-	echo "Log File         : ${LOG_FILE}"
+	# Echo all key variables for debugging / audit
+	echo -e "${CYAN}==== Script Configuration ====${RESET}"
+	echo "Script Name       : ${SCRIPT_NAME}"
+	echo "Script Base       : ${SCRIPT_BASE}"
+	echo "Script Directory  : ${SCRIPT_DIR}"
+	echo "Timestamp         : ${TIMESTAMP}"
+	echo "App Directory     : ${APP_DIR}"
+	echo "Logs Directory    : ${LOGS_DIRECTORY}"
+	echo "Log File          : ${LOG_FILE}"
+	echo "Package Manager   : ${PKG_MGR}"
+	echo "Utility Pkg File  : ${UTIL_PKG_FILE}"
+	echo "MYSQL_ROOT_PASSWORD (env): ${MYSQL_ROOT_PASSWORD:-<not set>}"
+	echo "CREATE_MYCNF (env): ${CREATE_MYCNF:-true}"
+	echo -e "${CYAN}==============================${RESET}"
 
 	isItRootUser
+
+	# Now SUDO is known, echo it as well
+	echo "SUDO helper       : ${SUDO:-<not set>}"
+
 	basicAppRequirements
+	installUtilPackages
 
 	configureMySQLRepo
 	installMySQLServer
