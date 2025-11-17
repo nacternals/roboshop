@@ -194,7 +194,6 @@ configureMySQLRepo() {
 	if ${SUDO:-} dnf -q module list mysql 2>/dev/null | grep -qE '^\s*mysql\s+.*\senabled'; then
 		echo -e "${YELLOW}Default MySQL 8 module is enabled. Disabling it now...${RESET}"
 		${SUDO:-} dnf -y module disable mysql >/dev/null 2>&1
-
 		validateStep $? \
 			"Disabled default MySQL 8 module from AppStream." \
 			"Failed to disable default MySQL 8 module from AppStream."
@@ -202,26 +201,16 @@ configureMySQLRepo() {
 		echo -e "${YELLOW}Default MySQL module is not enabled or already disabled. Skipping module disable step....${RESET}"
 	fi
 
-	# 2. Copy 19_mysql.repo to /etc/yum.repos.d/mysql.repo
-	echo -e "${CYAN}Checking custom MySQL 5.7 repo file...${RESET}"
-
-	if [[ -f /etc/yum.repos.d/mysql.repo ]]; then
-		echo -e "${YELLOW}MySQL repo already exists at /etc/yum.repos.d/mysql.repo, skipping copy....${RESET}"
-		return
-	fi
-
-	echo -e "${CYAN}MySQL repo not found. Creating MySQL 5.7 repo....${RESET}"
+	# 2. Always copy our custom MySQL 5.7 repo
+	echo -e "${CYAN}Creating/updating MySQL 5.7 repo at /etc/yum.repos.d/mysql.repo....${RESET}"
 	echo "mysql.repo script location: ${SCRIPT_DIR}/19_mysql.repo"
 
-	${SUDO:-} cp "${SCRIPT_DIR}/19_mysql.repo" /etc/yum.repos.d/mysql.repo
+	${SUDO:-} cp -f "${SCRIPT_DIR}/19_mysql.repo" /etc/yum.repos.d/mysql.repo
 	validateStep $? \
-		"MySQL 5.7 repo created at /etc/yum.repos.d/mysql.repo" \
-		"Failed to create MySQL 5.7 repo. Copy operation failed."
+		"MySQL 5.7 repo created/updated at /etc/yum.repos.d/mysql.repo" \
+		"Failed to create/update MySQL 5.7 repo. Copy operation failed."
 }
 
-# ---------- Function: installMySQLServer ----------
-# Purpose : Install and configure MySQL 5.7 Community Server.
-# Assumes : configureMySQLRepo has already been executed.
 installMySQLServer() {
 	echo -e "${CYAN}Checking if MySQL Server (MySQL 5.7) is already installed...${RESET}"
 
@@ -242,25 +231,7 @@ installMySQLServer() {
 		echo -e "${YELLOW}dnf command not found. Skipping module reset/disable for mysql.${RESET}"
 	fi
 
-	# ---------- Ensure module_hotfixes=1 in mysql.repo to avoid modular filtering ----------
-	if [[ -f /etc/yum.repos.d/mysql.repo ]]; then
-		if grep -q "module_hotfixes" /etc/yum.repos.d/mysql.repo; then
-			echo -e "${CYAN}mysql.repo already has module_hotfixes configured.${RESET}"
-		else
-			echo -e "${CYAN}Adding module_hotfixes=1 to /etc/yum.repos.d/mysql.repo to bypass modular filtering...${RESET}"
-			# Try to insert under mysql57-community section if present; otherwise append at end
-			if grep -q "^\[mysql57-community\]" /etc/yum.repos.d/mysql.repo; then
-				${SUDO:-} sed -i '/^\[mysql57-community\]/a module_hotfixes=1' /etc/yum.repos.d/mysql.repo || \
-					${SUDO:-} bash -c 'echo "module_hotfixes=1" >> /etc/yum.repos.d/mysql.repo'
-			else
-				${SUDO:-} bash -c 'echo "module_hotfixes=1" >> /etc/yum.repos.d/mysql.repo'
-			fi
-		fi
-	else
-		echo -e "${YELLOW}/etc/yum.repos.d/mysql.repo not found while preparing to install MySQL. Make sure configureMySQLRepo() ran successfully.${RESET}"
-	fi
-
-	# ---------- Optional: clean metadata ----------
+	# ---------- Clean metadata ----------
 	echo -e "${CYAN}Cleaning DNF/YUM metadata cache before MySQL installation...${RESET}"
 	${SUDO:-} "${PKG_MGR}" clean all >/dev/null 2>&1 || true
 	${SUDO:-} "${PKG_MGR}" makecache >/dev/null 2>&1 || true
@@ -271,14 +242,6 @@ installMySQLServer() {
 	echo -e "${CYAN}Installing mysql-community-server from configured MySQL 5.7 repo...${RESET}"
 	${SUDO:-} "${PKG_MGR_CMD}" install -y mysql-community-server
 	local install_rc=$?
-
-	if [[ "${install_rc}" -ne 0 ]]; then
-		echo -e "${RED}MySQL 5.7 installation failed (exit code: ${install_rc}).${RESET}"
-		echo -e "${YELLOW}Hints:${RESET}"
-		echo -e "  - Ensure 'dnf module list mysql' shows the module as disabled."
-		echo -e "  - Ensure /etc/yum.repos.d/mysql.repo has 'module_hotfixes=1'."
-		echo -e "  - Verify the baseurl points to a valid MySQL 5.7 repo for EL8."
-	fi
 
 	validateStep "${install_rc}" \
 		"MySQL 5.7 Community Server installed successfully." \
@@ -329,7 +292,6 @@ installMySQLServer() {
 
 	echo -e "${GREEN}MySQL 5.7 Community Server installation and basic configuration completed.${RESET}"
 }
-
 
 # ---------- Function: setRootPassword ----------
 # Purpose : Securely ensure MySQL root password is set.
