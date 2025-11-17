@@ -37,7 +37,7 @@ LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log"
 MONGO_REPO_FILE="${SCRIPT_DIR}/02_mongodb.repo"
 
 # Where shipping schema is expected after unzip
-SHIPPING_SCHEMA_FILE="${SHIPPING_APP_DIR}/schema/shipping.sql"
+SHIPPING_SCHEMA_FILE="${SHIPPING_APP_DIR}/db/schema.sql"
 
 # MongoDB host
 MONGODB_HOST="${MONGODB_HOST:-mongodb.optimusprime.sbs}"
@@ -207,7 +207,7 @@ loadShippingSchema() {
 	echo -e "${CYAN}Loading Shipping schema into MySQL...${RESET}"
 
 	# Where the schema SQL is expected
-	local SCHEMA_FILE="${SHIPPING_APP_DIR}/schema/shipping.sql"
+	local SCHEMA_FILE="${SHIPPING_SCHEMA_FILE}"
 
 	if [[ ! -f "${SCHEMA_FILE}" ]]; then
 		echo -e "${RED}ERROR: Shipping schema file not found: ${SCHEMA_FILE}${RESET}"
