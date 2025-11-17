@@ -129,7 +129,39 @@ basicAppRequirements() {
 }
 
 downloadShippingCode() {
+	echo -e "${CYAN}Setting up Shipping application code...${RESET}"
+
+	# Ensure shipping app directory exists
+	echo -e "${CYAN}Ensuring ${SHIPPING_APP_DIR} directory exists...${RESET}"
+	${SUDO:-} mkdir -p "${SHIPPING_APP_DIR}"
+	validateStep $? \
+		"${SHIPPING_APP_DIR} directory is ready." \
+		"Failed to create ${SHIPPING_APP_DIR} directory."
+
+	# Download the shipping code
+	echo -e "${CYAN}Downloading shipping application code to /tmp/shipping.zip...${RESET}"
+	${SUDO:-} curl -s -L -o /tmp/shipping.zip "https://roboshop-builds.s3.amazonaws.com/shipping.zip"
+	validateStep $? \
+		"Shipping application zip downloaded successfully." \
+		"Failed to download shipping application zip."
+
+	# Unzip into ${SHIPPING_APP_DIR}
+	echo -e "${CYAN}Unzipping shipping application into ${SHIPPING_APP_DIR}...${RESET}"
+	${SUDO:-} unzip -o /tmp/shipping.zip -d "${SHIPPING_APP_DIR}" >/dev/null
+	validateStep $? \
+		"Shipping application unzipped into ${SHIPPING_APP_DIR} successfully." \
+		"Failed to unzip shipping application into ${SHIPPING_APP_DIR}."
+
+	# Ownership
+	echo -e "${CYAN}Setting ownership of ${SHIPPING_APP_DIR} to user 'roboshop'...${RESET}"
+	${SUDO:-} chown -R roboshop:roboshop "${SHIPPING_APP_DIR}"
+	validateStep $? \
+		"Ownership of ${SHIPPING_APP_DIR} set to roboshop successfully." \
+		"Failed to set ownership of ${SHIPPING_APP_DIR} to roboshop."
+
+	echo -e "${GREEN}Shipping application code setup completed.${RESET}"
 }
+
 
 # ---------- MongoDB repo for client ----------
 createMongoRepoForClient() {
@@ -172,8 +204,34 @@ installMongoClient() {
 
 # ---------- Load Shipping schema ----------
 loadShippingSchema() {
+	echo -e "${CYAN}Loading Shipping schema into MySQL...${RESET}"
 
+	# Where the schema SQL is expected
+	local SCHEMA_FILE="${SHIPPING_APP_DIR}/schema/shipping.sql"
+
+	if [[ ! -f "${SCHEMA_FILE}" ]]; then
+		echo -e "${RED}ERROR: Shipping schema file not found: ${SCHEMA_FILE}${RESET}"
+		exit 1
+	fi
+
+	# MySQL connection details
+	local MYSQL_HOST_VAR="${MYSQL_HOST:-mysql.optimusprime.sbs}"
+	local MYSQL_ROOT_PASS="${MYSQL_ROOT_PASSWORD:-RoboShop@1}"
+
+	echo -e "${CYAN}Using MySQL host: ${MYSQL_HOST_VAR}${RESET}"
+	echo -e "${CYAN}Using MySQL root user to load schema.${RESET}"
+
+	# Load schema
+	MYSQL_PWD="${MYSQL_ROOT_PASS}" mysql -h "${MYSQL_HOST_VAR}" -uroot < "${SCHEMA_FILE}"
+	local rc=$?
+
+	validateStep "${rc}" \
+		"Shipping schema loaded successfully into MySQL on host ${MYSQL_HOST_VAR}." \
+		"Failed to load Shipping schema into MySQL on host ${MYSQL_HOST_VAR}."
+
+	echo -e "${GREEN}Shipping schema load completed.${RESET}"
 }
+
 
 # ---------- Main ----------
 main() {
