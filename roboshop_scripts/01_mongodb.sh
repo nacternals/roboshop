@@ -27,7 +27,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" # Directory where scr
 LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log"
 
 # Utility package list lives inside the git repo, next to script
-UTIL_PKG_FILE="${SCRIPT_DIR}/03_mongodbutilpackages.txt"
+UTIL_PKG_FILE="${SCRIPT_DIR}/03_mongodb_util_packages.txt"
 
 printBoxHeader() {
 	local TITLE="$1"
