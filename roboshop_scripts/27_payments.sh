@@ -324,18 +324,26 @@ installPaymentApplication() {
 createPaymentSystemDService() {
 	echo -e "${CYAN}Checking Payment SystemD service...${RESET}"
 
-	if [[ -f /etc/systemd/system/payment.service ]]; then
-		echo -e "${YELLOW}Payment SystemD service already exists, skipping creation....${RESET}"
-		return
+	local TARGET_SERVICE_FILE="/etc/systemd/system/payment.service"
+
+	if [[ -f "${TARGET_SERVICE_FILE}" ]]; then
+		echo -e "${YELLOW}Payment SystemD service already exists. Taking backup and overwriting with latest definition....${RESET}"
+		local BACKUP_FILE="${TARGET_SERVICE_FILE}.$(date +%F-%H-%M-%S).bak"
+		${SUDO:-} cp "${TARGET_SERVICE_FILE}" "${BACKUP_FILE}"
+		validateStep $? \
+			"Existing payment.service backed up to ${BACKUP_FILE}." \
+			"Failed to backup existing payment.service."
+	else
+		echo -e "${CYAN}Payment SystemD service not found. Creating new Payment SystemD service....${RESET}"
 	fi
 
-	echo -e "${CYAN}Payment SystemD service not found. Creating Payment SystemD service....${RESET}"
-	echo "Payment service file location: ${PAYMENT_SERVICE_FILE}"
+	echo "Payment service file source: ${PAYMENT_SERVICE_FILE}"
 
-	${SUDO:-} cp "${PAYMENT_SERVICE_FILE}" /etc/systemd/system/payment.service
+	# Always copy (create or overwrite)
+	${SUDO:-} cp -f "${PAYMENT_SERVICE_FILE}" "${TARGET_SERVICE_FILE}"
 	validateStep $? \
-		"Payment SystemD service file has been created at /etc/systemd/system/payment.service." \
-		"Failed to create Payment SystemD service file. Copy operation failed."
+		"Payment SystemD service file has been created/updated at ${TARGET_SERVICE_FILE}." \
+		"Failed to create/update Payment SystemD service file. Copy operation failed."
 
 	echo -e "${CYAN}Reloading SystemD daemon...${RESET}"
 	${SUDO:-} systemctl daemon-reload
@@ -349,14 +357,15 @@ createPaymentSystemDService() {
 		"Payment service enabled to start on boot." \
 		"Failed to enable payment service."
 
-	echo -e "${CYAN}Starting payment service...${RESET}"
-	${SUDO:-} systemctl start payment
+	echo -e "${CYAN}Restarting payment service...${RESET}"
+	${SUDO:-} systemctl restart payment
 	validateStep $? \
-		"Payment service started successfully." \
-		"Failed to start payment service."
+		"Payment service restarted successfully with latest configuration." \
+		"Failed to restart payment service."
 
-	echo -e "${GREEN}Payment SystemD service created and started successfully.${RESET}"
+	echo -e "${GREEN}Payment SystemD service created/updated and restarted successfully.${RESET}"
 }
+
 
 # ==========================================================
 # Main Execution

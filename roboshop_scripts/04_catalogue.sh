@@ -287,18 +287,26 @@ installCatalogue() {
 createCatalogueSystemDService() {
 	echo -e "${CYAN}Checking Catalogue SystemD service...${RESET}"
 
-	if [[ -f /etc/systemd/system/catalogue.service ]]; then
-		echo -e "${YELLOW}Catalogue SystemD service already exists, skipping creation....${RESET}"
-		return
+	local TARGET_SERVICE_FILE="/etc/systemd/system/catalogue.service"
+
+	if [[ -f "${TARGET_SERVICE_FILE}" ]]; then
+		echo -e "${YELLOW}Catalogue SystemD service already exists. Taking backup and overwriting with latest definition....${RESET}"
+		local BACKUP_FILE="${TARGET_SERVICE_FILE}.$(date +%F-%H-%M-%S).bak"
+		${SUDO:-} cp "${TARGET_SERVICE_FILE}" "${BACKUP_FILE}"
+		validateStep $? \
+			"Existing catalogue.service backed up to ${BACKUP_FILE}." \
+			"Failed to backup existing catalogue.service."
+	else
+		echo -e "${CYAN}Catalogue SystemD service not found. Creating new Catalogue SystemD service....${RESET}"
 	fi
 
-	echo -e "${CYAN}Catalogue SystemD service not found. Creating Catalogue SystemD service....${RESET}"
-	echo "Catalogue service file location: ${CATALOGUE_SERVICE_FILE}"
+	echo "Catalogue service file source: ${CATALOGUE_SERVICE_FILE}"
 
-	${SUDO:-} cp "${CATALOGUE_SERVICE_FILE}" /etc/systemd/system/catalogue.service
+	# Always copy (create or overwrite)
+	${SUDO:-} cp -f "${CATALOGUE_SERVICE_FILE}" "${TARGET_SERVICE_FILE}"
 	validateStep $? \
-		"Catalogue SystemD service file has been created at /etc/systemd/system/catalogue.service." \
-		"Failed to create Catalogue SystemD service file. Copy operation failed."
+		"Catalogue SystemD service file has been created/updated at ${TARGET_SERVICE_FILE}." \
+		"Failed to create/update Catalogue SystemD service file. Copy operation failed."
 
 	echo -e "${CYAN}Reloading SystemD daemon...${RESET}"
 	${SUDO:-} systemctl daemon-reload
@@ -312,14 +320,15 @@ createCatalogueSystemDService() {
 		"Catalogue service enabled to start on boot." \
 		"Failed to enable catalogue service."
 
-	echo -e "${CYAN}Starting catalogue service...${RESET}"
-	${SUDO:-} systemctl start catalogue
+	echo -e "${CYAN}Restarting catalogue service...${RESET}"
+	${SUDO:-} systemctl restart catalogue
 	validateStep $? \
-		"Catalogue service started successfully." \
-		"Failed to start catalogue service."
+		"Catalogue service restarted successfully with latest configuration." \
+		"Failed to restart catalogue service."
 
-	echo -e "${GREEN}Catalogue SystemD service created and started successfully.${RESET}"
+	echo -e "${GREEN}Catalogue SystemD service created/updated and restarted successfully.${RESET}"
 }
+
 
 # ---------- Main ----------
 main() {

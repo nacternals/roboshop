@@ -215,18 +215,26 @@ installShippingApplication() {
 createShippingSystemDService() {
 	echo -e "${CYAN}Checking Shipping SystemD service...${RESET}"
 
-	if [[ -f /etc/systemd/system/shipping.service ]]; then
-		echo -e "${YELLOW}Shipping SystemD service already exists, skipping creation....${RESET}"
-		return
+	local TARGET_SERVICE_FILE="/etc/systemd/system/shipping.service"
+
+	if [[ -f "${TARGET_SERVICE_FILE}" ]]; then
+		echo -e "${YELLOW}Shipping SystemD service already exists. Taking backup and overwriting with latest definition....${RESET}"
+		local BACKUP_FILE="${TARGET_SERVICE_FILE}.$(date +%F-%H-%M-%S).bak"
+		${SUDO:-} cp "${TARGET_SERVICE_FILE}" "${BACKUP_FILE}"
+		validateStep $? \
+			"Existing shipping.service backed up to ${BACKUP_FILE}." \
+			"Failed to backup existing shipping.service."
+	else
+		echo -e "${CYAN}Shipping SystemD service not found. Creating new Shipping SystemD service....${RESET}"
 	fi
 
-	echo -e "${CYAN}Shipping SystemD service not found. Creating Shipping SystemD service....${RESET}"
-	echo "Shipping service file location: ${SHIPPING_SERVICE_FILE}"
+	echo "Shipping service file source: ${SHIPPING_SERVICE_FILE}"
 
-	${SUDO:-} cp "${SHIPPING_SERVICE_FILE}" /etc/systemd/system/shipping.service
+	# Always copy (create or overwrite)
+	${SUDO:-} cp -f "${SHIPPING_SERVICE_FILE}" "${TARGET_SERVICE_FILE}"
 	validateStep $? \
-		"Shipping SystemD service file has been created at /etc/systemd/system/shipping.service." \
-		"Failed to create Shipping SystemD service file. Copy operation failed."
+		"Shipping SystemD service file has been created/updated at ${TARGET_SERVICE_FILE}." \
+		"Failed to create/update Shipping SystemD service file. Copy operation failed."
 
 	echo -e "${CYAN}Reloading SystemD daemon...${RESET}"
 	${SUDO:-} systemctl daemon-reload
@@ -240,14 +248,15 @@ createShippingSystemDService() {
 		"Shipping service enabled to start on boot." \
 		"Failed to enable shipping service."
 
-	echo -e "${CYAN}Starting shipping service...${RESET}"
-	${SUDO:-} systemctl start shipping
+	echo -e "${CYAN}Restarting shipping service...${RESET}"
+	${SUDO:-} systemctl restart shipping
 	validateStep $? \
-		"Shipping service started successfully." \
-		"Failed to start shipping service."
+		"Shipping service restarted successfully with latest configuration." \
+		"Failed to restart shipping service."
 
-	echo -e "${GREEN}Shipping SystemD service created and started successfully.${RESET}"
+	echo -e "${GREEN}Shipping SystemD service created/updated and restarted successfully.${RESET}"
 }
+
 
 # ==========================================================
 # Main Execution

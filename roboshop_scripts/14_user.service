@@ -5,7 +5,7 @@ User=roboshop
 Environment=MONGO=true
 Environment=REDIS_HOST=redis.optimusprime.sbs
 Environment=MONGO_URL="mongodb://mongodb.optimusprime.sbs>:27017/users"
-ExecStart=/bin/node /app/server.js
+ExecStart=/bin/node /app/user/server.js
 SyslogIdentifier=user
 
 [Install]
