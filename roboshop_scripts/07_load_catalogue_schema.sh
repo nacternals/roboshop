@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# 07_load_catalogue_schema.sh
+# 07_load_catalogue_schema.sh should be run from bastion-host
 #
 # Purpose:
 #   - Prepare /app and roboshop user (like other roboshop scripts)

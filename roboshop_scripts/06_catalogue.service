@@ -5,7 +5,7 @@ Description = Catalogue Service
 User=roboshop
 Environment=MONGO=true
 Environment=MONGO_URL="mongodb://mongodb.optimusprime.sbs>:27017/catalogue"
-ExecStart=/bin/node /app/server.js
+ExecStart=/bin/node /app/catalogue/server.js
 SyslogIdentifier=catalogue
 
 [Install]
