@@ -322,42 +322,10 @@ setRootPassword() {
 		EXIT_CODE=1
 	fi
 
-	# 3. Fallback: direct SQL
-	if [[ ${EXIT_CODE} -ne 0 ]]; then
-		# Try connecting without password (fresh install)
-		if mysql -uroot -e "SELECT 1" >/dev/null 2>&1; then
-			mysql -uroot <<EOF
-ALTER USER 'root'@'localhost' IDENTIFIED BY '${ROOT_PASS}';
-FLUSH PRIVILEGES;
-EOF
-			EXIT_CODE=$?
-		else
-			echo -e "${RED}Unable to connect to MySQL as root to set the password. Manual intervention may be required.${RESET}"
-			EXIT_CODE=1
-		fi
-	fi
 
 	validateStep ${EXIT_CODE} \
-		"MySQL root password set/updated successfully to 'RoboShop@1'." \
+		"MySQL root password set/updated successfully to '-----------'." \
 		"Failed to set/update MySQL root password."
-
-	# 4. Optional: create /root/.my.cnf for easy root access
-	if [[ "${CREATE_MYCNF:-true}" == "true" ]]; then
-		local MY_CNF="/root/.my.cnf"
-
-		if [[ ! -f "${MY_CNF}" ]]; then
-			${SUDO:-} bash -c "umask 0077 && cat > '${MY_CNF}' <<EOF
-[client]
-user=root
-password=${ROOT_PASS}
-EOF"
-			validateStep $? \
-				"Created ${MY_CNF} for password-less mysql client usage as root." \
-				"Failed to create ${MY_CNF} for root."
-		else
-			echo -e "${YELLOW}${MY_CNF} already exists. Not overwriting it.${RESET}"
-		fi
-	fi
 
 	echo -e "${GREEN}MySQL root password configuration completed.${RESET}"
 }
