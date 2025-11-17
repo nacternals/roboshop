@@ -331,18 +331,26 @@ installDispatchApplication() {
 createDispatchSystemDService() {
 	echo -e "${CYAN}Checking Dispatch SystemD service...${RESET}"
 
-	if [[ -f /etc/systemd/system/dispatch.service ]]; then
-		echo -e "${YELLOW}Dispatch SystemD service already exists, skipping creation....${RESET}"
-		return
+	local TARGET_SERVICE_FILE="/etc/systemd/system/dispatch.service"
+
+	if [[ -f "${TARGET_SERVICE_FILE}" ]]; then
+		echo -e "${YELLOW}Dispatch SystemD service already exists. Taking backup and overwriting with latest definition....${RESET}"
+		local BACKUP_FILE="${TARGET_SERVICE_FILE}.$(date +%F-%H-%M-%S).bak"
+		${SUDO:-} cp "${TARGET_SERVICE_FILE}" "${BACKUP_FILE}"
+		validateStep $? \
+			"Existing dispatch.service backed up to ${BACKUP_FILE}." \
+			"Failed to backup existing dispatch.service."
+	else
+		echo -e "${CYAN}Dispatch SystemD service not found. Creating new Dispatch SystemD service....${RESET}"
 	fi
 
-	echo -e "${CYAN}Dispatch SystemD service not found. Creating Dispatch SystemD service....${RESET}"
-	echo "Dispatch service file location: ${DISPATCH_SERVICE_FILE}"
+	echo "Dispatch service file source: ${DISPATCH_SERVICE_FILE}"
 
-	${SUDO:-} cp "${DISPATCH_SERVICE_FILE}" /etc/systemd/system/dispatch.service
+	# Always copy (create or overwrite)
+	${SUDO:-} cp -f "${DISPATCH_SERVICE_FILE}" "${TARGET_SERVICE_FILE}"
 	validateStep $? \
-		"Dispatch SystemD service file has been created at /etc/systemd/system/dispatch.service." \
-		"Failed to create Dispatch SystemD service file. Copy operation failed."
+		"Dispatch SystemD service file has been created/updated at ${TARGET_SERVICE_FILE}." \
+		"Failed to create/update Dispatch SystemD service file. Copy operation failed."
 
 	echo -e "${CYAN}Reloading SystemD daemon...${RESET}"
 	${SUDO:-} systemctl daemon-reload
@@ -356,14 +364,15 @@ createDispatchSystemDService() {
 		"Dispatch service enabled to start on boot." \
 		"Failed to enable dispatch service."
 
-	echo -e "${CYAN}Starting dispatch service...${RESET}"
-	${SUDO:-} systemctl start dispatch
+	echo -e "${CYAN}Restarting dispatch service...${RESET}"
+	${SUDO:-} systemctl restart dispatch
 	validateStep $? \
-		"Dispatch service started successfully." \
-		"Failed to start dispatch service."
+		"Dispatch service restarted successfully with latest configuration." \
+		"Failed to restart dispatch service."
 
-	echo -e "${GREEN}Dispatch SystemD service created and started successfully.${RESET}"
+	echo -e "${GREEN}Dispatch SystemD service created/updated and restarted successfully.${RESET}"
 }
+
 
 # ==========================================================
 # Main Execution
