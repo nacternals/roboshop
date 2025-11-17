@@ -28,7 +28,9 @@ SCRIPT_NAME="$(basename "$0")"
 SCRIPT_BASE="${SCRIPT_NAME%.*}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log"
-UTIL_PKG_FILE="${SCRIPT_DIR}/22_shippingutilpackages.txt"
+UTIL_PKG_FILE="${SCRIPT_DIR}/22_shipping_util_packages.txt"
+
+SHIPPING_APP_DIR="${APP_DIR}/shipping"
 SHIPPING_SERVICE_FILE="${SCRIPT_DIR}/23_shipping.service"
 
 
@@ -189,26 +191,54 @@ installMaven() {
 # ---------- Function: installShippingApplication ----------
 # Purpose : Download, extract, and build the Shipping microservice.
 installShippingApplication() {
-	echo -e "${CYAN}Setting up Shipping microservice...${RESET}"
+    echo -e "${CYAN}Setting up Shipping application...${RESET}"
 
-	echo -e "${CYAN}Downloading shipping application code...${RESET}"
-	${SUDO:-} curl -s -L -o /tmp/shipping.zip "https://roboshop-builds.s3.amazonaws.com/shipping.zip"
-	validateStep $? \
-		"Shipping application zip downloaded successfully." \
-		"Failed to download shipping application zip."
+    # Ensure Java/Maven are ready (if you have dedicated installers, call them here)
+    installMaven   # or installJava / installMavenJava etc, as per your pattern
 
-	echo -e "${CYAN}Extracting shipping application into ${APP_DIR}...${RESET}"
-	${SUDO:-} unzip -o /tmp/shipping.zip -d "${APP_DIR}" >/dev/null
-	validateStep $? \
-		"Shipping application extracted into ${APP_DIR} successfully." \
-		"Failed to extract shipping application into ${APP_DIR}."
+    # Ensure app directory exists
+    echo -e "${CYAN}Ensuring ${SHIPPING_APP_DIR} directory exists...${RESET}"
+    ${SUDO:-} mkdir -p "${SHIPPING_APP_DIR}"
+    validateStep $? \
+        "${SHIPPING_APP_DIR} directory is ready." \
+        "Failed to create ${SHIPPING_APP_DIR} directory."
 
-	echo -e "${CYAN}Building shipping application with Maven...${RESET}"
-	${SUDO:-} su - roboshop -s /bin/bash -c "cd ${APP_DIR} && mvn clean package && mv target/shipping-1.0.jar shipping.jar" >/dev/null
-	validateStep $? \
-		"Shipping application built successfully." \
-		"Failed to build shipping application."
+    # Download shipping code bundle
+    echo -e "${CYAN}Downloading shipping application code to /tmp/shipping.zip...${RESET}"
+    ${SUDO:-} curl -s -L -o /tmp/shipping.zip "https://roboshop-builds.s3.amazonaws.com/shipping.zip"
+    validateStep $? \
+        "Shipping application zip downloaded successfully." \
+        "Failed to download shipping application zip."
+
+    # Unzip into /app/shipping (NOT directly into /app)
+    echo -e "${CYAN}Unzipping shipping application into ${SHIPPING_APP_DIR}...${RESET}"
+    ${SUDO:-} unzip -o /tmp/shipping.zip -d "${SHIPPING_APP_DIR}" >/dev/null
+    validateStep $? \
+        "Shipping application unzipped into ${SHIPPING_APP_DIR} successfully." \
+        "Failed to unzip shipping application into ${SHIPPING_APP_DIR}."
+
+    echo -e "${CYAN}Setting ownership of ${SHIPPING_APP_DIR} to user 'roboshop'...${RESET}"
+    ${SUDO:-} chown -R roboshop:roboshop "${SHIPPING_APP_DIR}"
+    validateStep $? \
+        "Ownership of ${SHIPPING_APP_DIR} set to roboshop successfully." \
+        "Failed to set ownership of ${SHIPPING_APP_DIR} to roboshop."
+
+    # Build the jar as roboshop
+    echo -e "${CYAN}Building Shipping JAR (mvn clean package) as 'roboshop'...${RESET}"
+    ${SUDO:-} su - roboshop -s /bin/bash -c "cd ${SHIPPING_APP_DIR} && mvn clean package" >/dev/null
+    validateStep $? \
+        "Shipping application built successfully (mvn clean package)." \
+        "Failed to build Shipping application (mvn clean package)."
+
+    # Normalise jar name to /app/shipping/shipping.jar if your pom creates another name
+    if [[ -f ${SHIPPING_APP_DIR}/target/shipping-1.0.jar && ! -f ${SHIPPING_APP_DIR}/shipping.jar ]]; then
+        ${SUDO:-} cp "${SHIPPING_APP_DIR}/target/shipping-1.0.jar" "${SHIPPING_APP_DIR}/shipping.jar"
+        ${SUDO:-} chown roboshop:roboshop "${SHIPPING_APP_DIR}/shipping.jar"
+    fi
+
+    echo -e "${GREEN}Shipping application setup completed.${RESET}"
 }
+
 
 # ---------- Function: createShippingSystemDService ----------
 # Purpose : Create and enable the shipping.service SystemD unit.
@@ -256,7 +286,6 @@ createShippingSystemDService() {
 
 	echo -e "${GREEN}Shipping SystemD service created/updated and restarted successfully.${RESET}"
 }
-
 
 # ==========================================================
 # Main Execution
