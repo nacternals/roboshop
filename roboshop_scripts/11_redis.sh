@@ -132,27 +132,56 @@ basicAppRequirements() {
 installRedis() {
 	echo -e "${CYAN}Installing Redis repositories and packages...${RESET}"
 
-	# Install Remi repo RPM
-	echo -e "${CYAN}Installing Remi repository RPM...${RESET}"
-	${SUDO:-} "${PKG_MGR}" install -y https://rpms.remirepo.net/enterprise/remi-release-8.rpm
-	validateStep $? \
-		"Remi repository RPM installed successfully." \
-		"Failed to install Remi repository RPM."
+	# ---------- 1. Ensure Remi repo is present ----------
+	echo -e "${CYAN}Checking if Remi repository is already installed...${RESET}"
+	if rpm -q remi-release >/dev/null 2>&1; then
+		echo -e "${YELLOW}remi-release package already installed. Skipping Remi repo installation....${RESET}"
+	else
+		echo -e "${CYAN}Installing Remi repository RPM (remi-release-8.rpm)...${RESET}"
+		${SUDO:-} "${PKG_MGR}" install -y https://rpms.remirepo.net/enterprise/remi-release-8.rpm
+		validateStep $? \
+			"Remi repository RPM installed successfully." \
+			"Failed to install Remi repository RPM."
+	fi
 
-	# Enable redis:remi-6.2 module stream
+	# ---------- 2. Enable redis module stream from Remi ----------
+	echo -e "${CYAN}Resetting any existing Redis module stream (if present)...${RESET}"
+	${SUDO:-} "${PKG_MGR}" module reset -y redis >/dev/null 2>&1 || true
+
 	echo -e "${CYAN}Enabling redis:remi-6.2 module stream...${RESET}"
 	${SUDO:-} "${PKG_MGR}" module enable -y redis:remi-6.2
 	validateStep $? \
 		"redis:remi-6.2 module enabled successfully." \
 		"Failed to enable redis:remi-6.2 module."
 
-	# Install Redis
-	echo -e "${CYAN}Installing Redis server...${RESET}"
-	${SUDO:-} "${PKG_MGR}" install -y redis
+	# ---------- 3. Install Redis package ----------
+	echo -e "${CYAN}Checking if Redis server is already installed...${RESET}"
+	if rpm -q redis >/dev/null 2>&1; then
+		echo -e "${YELLOW}Redis server package already installed. Skipping package installation....${RESET}"
+	else
+		echo -e "${CYAN}Installing Redis server...${RESET}"
+		${SUDO:-} "${PKG_MGR}" install -y redis
+		validateStep $? \
+			"Redis server installed successfully." \
+			"Failed to install Redis server."
+	fi
+
+	# ---------- 4. Enable & start Redis service ----------
+	echo -e "${CYAN}Enabling redis service to start on boot...${RESET}"
+	${SUDO:-} systemctl enable redis
 	validateStep $? \
-		"Redis server installed successfully." \
-		"Failed to install Redis server."
+		"Redis service enabled to start on boot." \
+		"Failed to enable Redis service."
+
+	echo -e "${CYAN}Starting redis service...${RESET}"
+	${SUDO:-} systemctl start redis
+	validateStep $? \
+		"Redis service started successfully." \
+		"Failed to start Redis service."
+
+	echo -e "${GREEN}Redis installation and service setup completed successfully.${RESET}"
 }
+
 
 # ---------- Redis configuration (bind 0.0.0.0) ----------
 configureRedis() {
