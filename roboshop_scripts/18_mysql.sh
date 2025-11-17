@@ -32,7 +32,7 @@ LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log"
 
 # Utility packages list specific to MySQL script
 # One package name per line in this file.
-UTIL_PKG_FILE="${SCRIPT_DIR}/20_mysqlutilpackages.txt"
+UTIL_PKG_FILE="${SCRIPT_DIR}/20_mysql_util_packages.txt"
 
 # Package manager (dnf or yum)
 PKG_MGR="dnf"
@@ -295,62 +295,36 @@ installMySQLServer() {
 
 # ---------- Function: setRootPassword ----------
 # Purpose : Securely ensure MySQL root password is set.
-# Behavior:
-#   - Uses MYSQL_ROOT_PASSWORD env var if set
-#   - Else uses existing /root/.mysql_root_password if present
-#   - Else generates a strong random password and stores it in that file
-#   - Optionally creates /root/.my.cnf (controlled via CREATE_MYCNF env var)
+
 setRootPassword() {
-	echo -e "${CYAN}Ensuring MySQL root password is securely configured...${RESET}"
+	echo -e "${CYAN}Ensuring MySQL root password is configured to '------------'...${RESET}"
 
-	# Where to persist the generated password (root-only)
-	local ROOT_PASS_FILE="/root/.mysql_root_password"
-	local ROOT_PASS=""
+	# Fixed root password (change here if needed)
+	local ROOT_PASS="RoboShop@1"
+	local EXIT_CODE=0
 
-	# 1. Decide the root password source
-	if [[ -n "${MYSQL_ROOT_PASSWORD:-}" ]]; then
-		ROOT_PASS="${MYSQL_ROOT_PASSWORD}"
-		echo -e "${CYAN}Using MySQL root password from MYSQL_ROOT_PASSWORD environment variable.${RESET}"
-	elif [[ -f "${ROOT_PASS_FILE}" ]]; then
-		ROOT_PASS="$(<"${ROOT_PASS_FILE}")"
-		echo -e "${CYAN}Using existing MySQL root password from ${ROOT_PASS_FILE}.${RESET}"
-	else
-		# Generate a strong random password (no spaces, mixed charset)
-		ROOT_PASS="$(
-			LC_ALL=C tr -dc 'A-Za-z0-9!@#$%^&*_-+=' </dev/urandom | head -c 24
-		)"
-
-		${SUDO:-} bash -c "umask 0077 && echo '${ROOT_PASS}' > '${ROOT_PASS_FILE}'"
-		validateStep $? \
-			"Generated a strong MySQL root password and stored it in ${ROOT_PASS_FILE} (root-only)." \
-			"Failed to persist generated MySQL root password to ${ROOT_PASS_FILE}."
-
-		echo -e "${YELLOW}A new MySQL root password was generated and saved to ${ROOT_PASS_FILE}.${RESET}"
-		echo -e "${YELLOW}Back this file up securely (e.g., password manager / vault).${RESET}"
-	fi
-
-	# 2. Check if MySQL root password is already correctly set to ROOT_PASS
+	# 1. If root already works with this password, skip
 	if MYSQL_PWD="${ROOT_PASS}" mysql -uroot -e "SELECT 1" >/dev/null 2>&1; then
-		echo -e "${YELLOW}MySQL root password is already configured and works. Skipping reconfiguration.${RESET}"
-		return
+		echo -e "${YELLOW}MySQL root password already set to the desired value. Skipping reconfiguration.${RESET}"
+		return 0
 	fi
 
-	echo -e "${CYAN}Configuring MySQL root password securely...${RESET}"
+	echo -e "${CYAN}Setting MySQL root password using mysql_secure_installation (if available)...${RESET}"
 
-	# 3. Preferred path: mysql_secure_installation with --set-root-pass (non-interactive)
-	local EXIT_CODE=1
-	if command -v mysql_secure_installation >/dev/null 2>&1; then
+	# 2. Preferred path: mysql_secure_installation --set-root-pass
+	if command -v mysql_secure_installation >/devnull 2>&1; then
 		${SUDO:-} mysql_secure_installation --set-root-pass "${ROOT_PASS}" >/dev/null 2>&1 || EXIT_CODE=$?
 		if [[ ${EXIT_CODE} -ne 0 ]]; then
-			echo -e "${YELLOW}mysql_secure_installation failed or unsupported. Falling back to direct SQL method...${RESET}"
+			echo -e "${YELLOW}mysql_secure_installation failed or is unsupported. Falling back to direct SQL method...${RESET}"
 		fi
 	else
 		echo -e "${YELLOW}mysql_secure_installation not found. Using direct SQL method to set root password...${RESET}"
+		EXIT_CODE=1
 	fi
 
-	# 4. Fallback: direct SQL method if mysql_secure_installation was not available or failed
+	# 3. Fallback: direct SQL
 	if [[ ${EXIT_CODE} -ne 0 ]]; then
-		# First try without password (fresh install / no root password)
+		# Try connecting without password (fresh install)
 		if mysql -uroot -e "SELECT 1" >/dev/null 2>&1; then
 			mysql -uroot <<EOF
 ALTER USER 'root'@'localhost' IDENTIFIED BY '${ROOT_PASS}';
@@ -364,10 +338,10 @@ EOF
 	fi
 
 	validateStep ${EXIT_CODE} \
-		"MySQL root password set/updated successfully." \
+		"MySQL root password set/updated successfully to 'RoboShop@1'." \
 		"Failed to set/update MySQL root password."
 
-	# 5. (Optional) create /root/.my.cnf for root-only MySQL admin usage
+	# 4. Optional: create /root/.my.cnf for easy root access
 	if [[ "${CREATE_MYCNF:-true}" == "true" ]]; then
 		local MY_CNF="/root/.my.cnf"
 
@@ -378,14 +352,14 @@ user=root
 password=${ROOT_PASS}
 EOF"
 			validateStep $? \
-				"Created ${MY_CNF} for secure password-less mysql client usage as root." \
+				"Created ${MY_CNF} for password-less mysql client usage as root." \
 				"Failed to create ${MY_CNF} for root."
 		else
 			echo -e "${YELLOW}${MY_CNF} already exists. Not overwriting it.${RESET}"
 		fi
 	fi
 
-	echo -e "${GREEN}MySQL root password configuration completed securely.${RESET}"
+	echo -e "${GREEN}MySQL root password configuration completed.${RESET}"
 }
 
 # ==========================================================
