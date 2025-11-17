@@ -27,6 +27,7 @@ RESET="\e[0m"
 TIMESTAMP="$(date +"%F-%H-%M-%S")"
 APP_DIR="/app"                   # Application root directory
 LOGS_DIRECTORY="${APP_DIR}/logs" # Central log directory -> /app/logs
+USER_APP_DIR="/app/user"
 SCRIPT_NAME="$(basename "$0")"   # e.g. 11_user.sh
 SCRIPT_BASE="${SCRIPT_NAME%.*}"  # e.g. 11_user
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -253,34 +254,53 @@ installNodeJS() {
 
 # ---------- User microservice: application setup ----------
 installUserApplication() {
-	echo -e "${CYAN}Setting up User microservice...${RESET}"
+	echo -e "${CYAN}Setting up User application...${RESET}"
 
 	# Ensure NodeJS is ready before npm install
+	echo -e "${CYAN}Ensuring NodeJS runtime is installed (installNodeJS)...${RESET}"
 	installNodeJS
+	validateStep $? \
+		"NodeJS runtime is ready for user service." \
+		"Failed to ensure NodeJS runtime for user service."
+
+	# Ensure user app directory exists
+	echo -e "${CYAN}Ensuring ${USER_APP_DIR} directory exists...${RESET}"
+	${SUDO:-} mkdir -p "${USER_APP_DIR}"
+	validateStep $? \
+		"${USER_APP_DIR} directory is ready." \
+		"Failed to create ${USER_APP_DIR} directory."
 
 	# Download user application bundle
-	echo -e "${CYAN}Downloading user application code...${RESET}"
+	echo -e "${CYAN}Downloading user application code to /tmp/user.zip...${RESET}"
 	${SUDO:-} curl -s -L -o /tmp/user.zip "https://roboshop-builds.s3.amazonaws.com/user.zip"
 	validateStep $? \
 		"User application zip downloaded successfully." \
 		"Failed to download user application zip."
 
-	# Extract into /app (we do NOT delete /app, so logs and other services are safe)
-	echo -e "${CYAN}Extracting user application into /app...${RESET}"
-	${SUDO:-} unzip -o /tmp/user.zip -d /app >/dev/null
+	# Extract into /app/user (NOT directly into /app)
+	echo -e "${CYAN}Unzipping user application into ${USER_APP_DIR}...${RESET}"
+	${SUDO:-} unzip -o /tmp/user.zip -d "${USER_APP_DIR}" >/dev/null
 	validateStep $? \
-		"User application extracted into /app successfully." \
-		"Failed to extract user application into /app."
+		"User application unzipped into ${USER_APP_DIR} successfully." \
+		"Failed to unzip user application into ${USER_APP_DIR}."
+
+	# Ownership
+	echo -e "${CYAN}Setting ownership of ${USER_APP_DIR} to user 'roboshop'...${RESET}"
+	${SUDO:-} chown -R roboshop:roboshop "${USER_APP_DIR}"
+	validateStep $? \
+		"Ownership of ${USER_APP_DIR} set to roboshop successfully." \
+		"Failed to set ownership of ${USER_APP_DIR} to roboshop."
 
 	# Install NodeJS dependencies as roboshop
 	echo -e "${CYAN}Installing NodeJS dependencies (npm install) as 'roboshop'...${RESET}"
-	${SUDO:-} su - roboshop -s /bin/bash -c "cd /app && npm install" >/dev/null
+	${SUDO:-} su - roboshop -s /bin/bash -c "cd ${USER_APP_DIR} && npm install" >/dev/null
 	validateStep $? \
 		"NodeJS dependencies installed successfully for user service." \
 		"Failed to install NodeJS dependencies for user service."
 
 	echo -e "${GREEN}User application setup completed.${RESET}"
 }
+
 
 # ---------- User microservice: SystemD service ----------
 createUserSystemDService() {
