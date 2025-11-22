@@ -5,6 +5,9 @@ Description=Shipping Service
 User=roboshop
 Environment=CART_ENDPOINT=cart.optimusprime.sbs:8080
 Environment=DB_HOST=mysql.optimusprime.sbs
+Environment=DB_PORT=3306
+Environment=DB_USER=root
+Environment=DB_PASS=RoboShop@1
 ExecStart=/bin/java -jar /app/shipping/shipping.jar
 SyslogIdentifier=shipping
 
