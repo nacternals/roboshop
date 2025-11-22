@@ -5,17 +5,19 @@ set -euo pipefail
 # ==========================================================
 # Payment Service Setup Script for RoboShop
 #
-# What this script does:
-#   - Detects package manager (dnf / yum)
-#   - Installs Python 3.6 + build deps (python36, python36-devel, gcc)
-#   - Creates 'roboshop' user
-#   - Creates /app and deploys payment code there
-#   - Installs Python dependencies (including pyuwsgi) as root
-#   - Creates /etc/systemd/system/payment.service using uwsgi
-#   - Reloads systemd, enables and starts payment.service
+# Files used:
+#   - payment.sh                    (this script)
+#   - payment_util_packages.txt     (utility package list)
+#   - payment.service               (systemd unit template)
 #
-# Service is configured to run as 'roboshop' (NOT root).
-# Adjust CART/USER/RABBITMQ hostnames as needed near the bottom.
+# What this script does:
+#   - Ensures 'roboshop' user exists
+#   - Ensures /app and /app/logs exist & owned by roboshop
+#   - Installs Python 3.6 + build deps + pip
+#   - Downloads payment.zip to /tmp and unzips into /app
+#   - Installs Python dependencies (including pyuwsgi) as root
+#   - Copies payment.service → /etc/systemd/system/payment.service
+#   - Reloads systemd, enables & restarts payment.service
 # ==========================================================
 
 # ---------- Colors ----------
@@ -28,19 +30,19 @@ RESET="\e[0m"
 
 # ---------- Config ----------
 APP_DIR="/app"
+LOGS_DIR="${APP_DIR}/logs"
 PAYMENT_ZIP_URL="https://roboshop-builds.s3.amazonaws.com/payment.zip"
+
+SCRIPT_NAME="$(basename "$0")"
+SCRIPT_BASE="${SCRIPT_NAME%.*}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+UTIL_PKG_FILE="${SCRIPT_DIR}/payment_util_packages.txt"
+PAYMENT_SERVICE_TEMPLATE="${SCRIPT_DIR}/payment.service"
 SYSTEMD_SERVICE_FILE="/etc/systemd/system/payment.service"
 
-# Use your actual hosts here (change if needed)
-CART_HOST="cart.optimusprime.sbs"
-CART_PORT="8080"
-USER_HOST="user.optimusprime.sbs"
-USER_PORT="8080"
-AMQP_HOST="rabbitmq.optimusprime.sbs"
-AMQP_USER="roboshop"
-AMQP_PASS="roboshop123"
+LOG_FILE="${LOGS_DIR}/${SCRIPT_BASE}-$(date +%F).log"
 
-# Will be set after detection
 PKG_MGR=""
 
 # ==========================================================
@@ -49,7 +51,7 @@ PKG_MGR=""
 
 print_header() {
   echo -e "${BLUE}===========================================${RESET}"
-  echo -e "${CYAN} Payment Service Setup Script${RESET}"
+  echo -e "${CYAN} Payment Service Setup Script Execution${RESET}"
   echo -e "${YELLOW} Started @ $(date +"%F %T")${RESET}"
   echo -e "${BLUE}===========================================${RESET}"
 }
@@ -60,9 +62,9 @@ validate_step() {
   local FAILURE_MSG="$3"
 
   if [[ "${EXIT_CODE}" -eq 0 ]]; then
-    echo -e "${GREEN}[OK]${RESET} ${SUCCESS_MSG}"
+    echo -e "${GREEN}[SUCCESS]${RESET} ${SUCCESS_MSG}"
   else
-    echo -e "${RED}[ERROR]${RESET} ${FAILURE_MSG} (exit code: ${EXIT_CODE})"
+    echo -e "${RED}[FAILURE]${RESET} ${FAILURE_MSG} (exit code: ${EXIT_CODE})"
     exit "${EXIT_CODE}"
   fi
 }
@@ -89,43 +91,12 @@ detect_pkg_mgr() {
   echo -e "${GREEN}Using package manager: ${PKG_MGR}${RESET}"
 }
 
-install_python_and_build_deps() {
-  echo -e "${CYAN}Installing Python 3.6 and build dependencies...${RESET}"
+basic_app_requirements() {
+  echo -e "${CYAN}Ensuring basic app requirements (/app, /app/logs, roboshop user)...${RESET}"
 
-  # The original doc uses: dnf install python36 gcc python3-devel -y
-  # On CentOS Stream 8 we know python36 + python36-devel exist.
-  # We'll install python36, python36-devel, gcc and ignore python3-devel.
-  local pkgs=(python36 python36-devel gcc)
-
-  ${PKG_MGR} install -y "${pkgs[@]}" >/dev/null 2>&1
-  validate_step $? \
-    "Python 3.6 and build deps installed (or already present)." \
-    "Failed to install Python 3.6 and build deps."
-
-  if command -v python3.6 >/dev/null 2>&1; then
-    local ver
-    ver="$(python3.6 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
-    echo -e "${GREEN}Python 3.6 is available. Detected version: ${ver}${RESET}"
-  else
-    echo -e "${RED}python3.6 not found on PATH even after installation.${RESET}"
-    exit 1
-  fi
-}
-
-create_app_user_and_dir() {
-  echo -e "${CYAN}Ensuring 'roboshop' user and /app directory exist...${RESET}"
-
-  if id roboshop >/dev/null 2>&1; then
-    echo -e "${YELLOW}User 'roboshop' already exists. Skipping user creation.${RESET}"
-  else
-    useradd roboshop
-    validate_step $? \
-      "User 'roboshop' created successfully." \
-      "Failed to create user 'roboshop'."
-  fi
-
+  # /app
   if [[ -d "${APP_DIR}" ]]; then
-    echo -e "${YELLOW}${APP_DIR} directory already exists.${RESET}"
+    echo -e "${YELLOW}${APP_DIR} already exists. Skipping creation.${RESET}"
   else
     mkdir -p "${APP_DIR}"
     validate_step $? \
@@ -133,14 +104,77 @@ create_app_user_and_dir() {
       "Failed to create ${APP_DIR} directory."
   fi
 
+  # /app/logs
+  mkdir -p "${LOGS_DIR}"
+  validate_step $? \
+    "Logs directory ${LOGS_DIR} is ready." \
+    "Failed to create logs directory ${LOGS_DIR}."
+
+  # roboshop user
+  if id roboshop >/dev/null 2>&1; then
+    echo -e "${YELLOW}User 'roboshop' already exists. Skipping creation.${RESET}"
+  else
+    useradd roboshop
+    validate_step $? \
+      "User 'roboshop' created successfully." \
+      "Failed to create user 'roboshop'."
+  fi
+
   chown -R roboshop:roboshop "${APP_DIR}"
   validate_step $? \
     "Ownership of ${APP_DIR} set to roboshop:roboshop." \
-    "Failed to set ownership for ${APP_DIR}."
+    "Failed to set ownership on ${APP_DIR}."
+}
+
+install_util_packages() {
+  echo -e "${CYAN}Installing utility packages from ${UTIL_PKG_FILE}...${RESET}"
+
+  if [[ ! -f "${UTIL_PKG_FILE}" ]]; then
+    echo -e "${YELLOW}Utility package file ${UTIL_PKG_FILE} not found. Skipping util package install.${RESET}"
+    return
+  fi
+
+  local PKGS=()
+  while IFS= read -r line; do
+    [[ -z "${line}" ]] && continue
+    PKGS+=("${line}")
+  done < "${UTIL_PKG_FILE}"
+
+  if [[ "${#PKGS[@]}" -eq 0 ]]; then
+    echo -e "${YELLOW}No packages listed in ${UTIL_PKG_FILE}. Skipping util package install.${RESET}"
+    return
+  fi
+
+  echo -e "${CYAN}Installing: ${PKGS[*]}${RESET}"
+  ${PKG_MGR} install -y "${PKGS[@]}"
+  validate_step $? \
+    "Utility packages installed successfully." \
+    "Failed to install one or more utility packages."
+}
+
+install_python_and_build_deps() {
+  echo -e "${CYAN}Installing Python 3.6 + build dependencies...${RESET}"
+
+  # Matching the doc: python36, gcc, python3-devel - we also add python3-pip to be safe
+  local pkgs=(python36 python36-devel gcc python3-pip)
+
+  ${PKG_MGR} install -y "${pkgs[@]}"
+  validate_step $? \
+    "Python 3.6, build deps and pip installed (or already present)." \
+    "Failed to install Python 3.6 and build deps."
+
+  if command -v python3.6 >/dev/null 2>&1; then
+    local ver
+    ver="$(python3.6 -c 'import sys; print("{}.{}".format(sys.version_info.major, sys.version_info.minor))')"
+    echo -e "${GREEN}python3.6 detected. Version: ${ver}${RESET}"
+  else
+    echo -e "${RED}python3.6 not found on PATH even after installation.${RESET}"
+    exit 1
+  fi
 }
 
 deploy_payment_code() {
-  echo -e "${CYAN}Deploying payment application to ${APP_DIR}...${RESET}"
+  echo -e "${CYAN}Deploying payment application into ${APP_DIR}...${RESET}"
 
   echo -e "${CYAN}Downloading payment.zip to /tmp/payment.zip...${RESET}"
   curl -s -L -o /tmp/payment.zip "${PAYMENT_ZIP_URL}"
@@ -148,9 +182,7 @@ deploy_payment_code() {
     "Downloaded payment.zip successfully." \
     "Failed to download payment.zip."
 
-  # Optional: clean old contents (only payment-related files)
-  # Careful here if you also store other apps in /app
-  echo -e "${CYAN}Cleaning old payment files from ${APP_DIR} (keeping directory)...${RESET}"
+  echo -e "${CYAN}Cleaning old payment files (payment.py, rabbitmq.py, payment.ini, requirements.txt) from ${APP_DIR}...${RESET}"
   rm -f "${APP_DIR}/payment.py" \
         "${APP_DIR}/rabbitmq.py" \
         "${APP_DIR}/payment.ini" \
@@ -165,20 +197,20 @@ deploy_payment_code() {
   chown -R roboshop:roboshop "${APP_DIR}"
   validate_step $? \
     "Re-applied ownership of ${APP_DIR} to roboshop:roboshop." \
-    "Failed to apply ownership to ${APP_DIR}."
+    "Failed to set ownership on ${APP_DIR}."
 }
 
 install_python_dependencies() {
-  echo -e "${CYAN}Installing Python dependencies (including pyuwsgi) globally as root...${RESET}"
+  echo -e "${CYAN}Installing Python dependencies (including pyuwsgi) as root...${RESET}"
 
-  if [[ ! -f "${APP_DIR}/requirements.txt" ]]; then
-    echo -e "${RED}requirements.txt not found in ${APP_DIR}. Cannot install dependencies.${RESET}"
+  local REQ_FILE="${APP_DIR}/requirements.txt"
+
+  if [[ ! -f "${REQ_FILE}" ]]; then
+    echo -e "${RED}requirements.txt not found at ${REQ_FILE}. Cannot install dependencies.${RESET}"
     exit 1
   fi
 
-  # Install everything (including pyuwsgi) as root so that
-  # /usr/local/bin/uwsgi and libraries are created without permission issues.
-  pip3.6 install -r "${APP_DIR}/requirements.txt" >/dev/null
+  python3.6 -m pip install -r "${REQ_FILE}"
   validate_step $? \
     "Installed Python dependencies from requirements.txt." \
     "Failed to install Python dependencies."
@@ -186,12 +218,17 @@ install_python_dependencies() {
   if [[ -x "/usr/local/bin/uwsgi" ]]; then
     echo -e "${GREEN}uwsgi binary found at /usr/local/bin/uwsgi.${RESET}"
   else
-    echo -e "${YELLOW}WARNING: /usr/local/bin/uwsgi not found. Check pyuwsgi installation.${RESET}"
+    echo -e "${YELLOW}WARNING: /usr/local/bin/uwsgi not found. Check pyuwsgi installation if service fails to start.${RESET}"
   fi
 }
 
-create_systemd_service() {
-  echo -e "${CYAN}Creating systemd service file: ${SYSTEMD_SERVICE_FILE}${RESET}"
+install_systemd_service() {
+  echo -e "${CYAN}Configuring systemd payment.service using template: ${PAYMENT_SERVICE_TEMPLATE}${RESET}"
+
+  if [[ ! -f "${PAYMENT_SERVICE_TEMPLATE}" ]]; then
+    echo -e "${RED}Template ${PAYMENT_SERVICE_TEMPLATE} not found. Cannot create systemd service.${RESET}"
+    exit 1
+  fi
 
   if [[ -f "${SYSTEMD_SERVICE_FILE}" ]]; then
     local backup="${SYSTEMD_SERVICE_FILE}.$(date +%F-%H-%M-%S).bak"
@@ -202,34 +239,10 @@ create_systemd_service() {
       "Failed to backup existing payment.service."
   fi
 
-  cat > "${SYSTEMD_SERVICE_FILE}" <<EOF
-[Unit]
-Description=Payment Service
-After=network.target
-
-[Service]
-User=roboshop
-WorkingDirectory=${APP_DIR}
-Environment=CART_HOST=${CART_HOST}
-Environment=CART_PORT=${CART_PORT}
-Environment=USER_HOST=${USER_HOST}
-Environment=USER_PORT=${USER_PORT}
-Environment=AMQP_HOST=${AMQP_HOST}
-Environment=AMQP_USER=${AMQP_USER}
-Environment=AMQP_PASS=${AMQP_PASS}
-
-ExecStart=/usr/local/bin/uwsgi --ini payment.ini
-ExecStop=/bin/kill -TERM \$MAINPID
-Restart=on-failure
-SyslogIdentifier=payment
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
+  cp "${PAYMENT_SERVICE_TEMPLATE}" "${SYSTEMD_SERVICE_FILE}"
   validate_step $? \
-    "Created ${SYSTEMD_SERVICE_FILE}." \
-    "Failed to create ${SYSTEMD_SERVICE_FILE}."
+    "Copied payment.service template to ${SYSTEMD_SERVICE_FILE}." \
+    "Failed to copy payment.service template."
 
   echo -e "${CYAN}Reloading systemd daemon...${RESET}"
   systemctl daemon-reload
@@ -237,19 +250,17 @@ EOF
     "systemd daemon reloaded." \
     "Failed to reload systemd daemon."
 
-  echo -e "${CYAN}Enabling payment.service to start on boot...${RESET}"
+  echo -e "${CYAN}Enabling payment.service at boot...${RESET}"
   systemctl enable payment >/dev/null 2>&1
   validate_step $? \
     "payment.service enabled." \
     "Failed to enable payment.service."
 
-  echo -e "${CYAN}Starting (or restarting) payment.service...${RESET}"
+  echo -e "${CYAN}Restarting payment.service...${RESET}"
   systemctl restart payment
   validate_step $? \
-    "payment.service started successfully." \
-    "Failed to start payment.service."
-
-  echo -e "${GREEN}payment.service is now configured and running.${RESET}"
+    "payment.service restarted successfully." \
+    "Failed to start/restart payment.service."
 }
 
 # ==========================================================
@@ -257,17 +268,28 @@ EOF
 # ==========================================================
 
 main() {
+  # Setup logging to file
+  mkdir -p "${LOGS_DIR}"
+  exec >>"${LOG_FILE}" 2>&1
+
   print_header
+  echo -e "${CYAN}Script Name   : ${SCRIPT_NAME}${RESET}"
+  echo -e "${CYAN}Script Dir    : ${SCRIPT_DIR}${RESET}"
+  echo -e "${CYAN}App Directory : ${APP_DIR}${RESET}"
+  echo -e "${CYAN}Logs Directory: ${LOGS_DIR}${RESET}"
+  echo -e "${CYAN}Log File      : ${LOG_FILE}${RESET}"
+
   ensure_root
   detect_pkg_mgr
+  basic_app_requirements
+  install_util_packages
   install_python_and_build_deps
-  create_app_user_and_dir
   deploy_payment_code
   install_python_dependencies
-  create_systemd_service
+  install_systemd_service
 
-  echo -e "${GREEN}Payment setup completed successfully.${RESET}"
-  echo -e "${CYAN}You can check status with:${RESET} systemctl status payment.service -l"
+  echo -e "${GREEN}Payment setup script completed successfully.${RESET}"
+  echo -e "${CYAN}Check status with:${RESET} systemctl status payment.service -l"
 }
 
 main "$@"

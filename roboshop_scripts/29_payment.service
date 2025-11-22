@@ -1,9 +1,12 @@
 [Unit]
 Description=Payment Service
+After=network.target
 
 [Service]
-User=root
-WorkingDirectory=/app/payment
+User=roboshop
+WorkingDirectory=/app
+
+# ---- Application Environment ----
 Environment=CART_HOST=cart.optimusprime.sbs
 Environment=CART_PORT=8080
 Environment=USER_HOST=user.optimusprime.sbs
@@ -12,8 +15,10 @@ Environment=AMQP_HOST=rabbitmq.optimusprime.sbs
 Environment=AMQP_USER=roboshop
 Environment=AMQP_PASS=roboshop123
 
+# uWSGI entrypoint (installed via pyuwsgi from requirements.txt)
 ExecStart=/usr/local/bin/uwsgi --ini payment.ini
-ExecStop=/bin/kill -9 $MAINPID
+ExecStop=/bin/kill -TERM $MAINPID
+Restart=on-failure
 SyslogIdentifier=payment
 
 [Install]
