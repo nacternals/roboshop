@@ -1,5 +1,6 @@
 git
 vim
 wget
+curl
+unzip
 tree
-net-tools
