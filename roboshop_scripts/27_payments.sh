@@ -250,6 +250,22 @@ installPaymentApplication() {
 		"Ownership of ${PAYMENT_APP_DIR} set to roboshop successfully." \
 		"Failed to set ownership of ${PAYMENT_APP_DIR} to roboshop."
 
+	# Prepare requirements.txt: remove pyuwsgi if present (to avoid build failures)
+	if [[ -f "${PAYMENT_APP_DIR}/requirements.txt" ]]; then
+		echo -e "${CYAN}Preparing requirements.txt (backing up and removing 'pyuwsgi' if present)...${RESET}"
+		${SUDO:-} cp "${PAYMENT_APP_DIR}/requirements.txt" "${PAYMENT_APP_DIR}/requirements.txt.bak"
+		validateStep $? \
+			"requirements.txt backed up successfully." \
+			"Failed to backup requirements.txt."
+
+		${SUDO:-} sed -i '/pyuwsgi/d' "${PAYMENT_APP_DIR}/requirements.txt"
+		validateStep $? \
+			"'pyuwsgi' removed from requirements.txt (if it existed)." \
+			"Failed to modify requirements.txt to remove 'pyuwsgi'."
+	else
+		echo -e "${YELLOW}requirements.txt not found in ${PAYMENT_APP_DIR}; skipping pyuwsgi removal step.${RESET}"
+	fi
+
 	# Install Python dependencies as roboshop user
 	echo -e "${CYAN}Installing Python dependencies (python3 -m pip install -r requirements.txt) as 'roboshop' user...${RESET}"
 	${SUDO:-} su - roboshop -s /bin/bash -c "cd ${PAYMENT_APP_DIR} && python3 -m pip install -r requirements.txt" >/dev/null
@@ -306,7 +322,6 @@ createPaymentSystemDService() {
 
 	echo -e "${GREEN}Payment SystemD service created/updated and restarted successfully.${RESET}"
 }
-
 
 # ==========================================================
 # Main Execution
