@@ -8,7 +8,7 @@ set -euo pipefail
 # Responsibilities:
 #   - Ensure /app and /app/logs exist and owned by 'roboshop'
 #   - Install utility packages from 28_payments_util_packages.txt
-#   - Ensure Python 3.6+, gcc, python3-devel are present
+#   - Ensure Python 3.6+, gcc, python3-devel, python3-pip are present
 #   - Download and configure Payment Python microservice in /app/payment
 #   - Configure and enable payment.service (SystemD unit)
 #
@@ -184,83 +184,24 @@ installUtilPackages() {
 }
 
 # ---------- Function: installPython ----------
-# Purpose : Ensure Python 3.6+, gcc, and python3-devel are installed.
-# Notes   : Called from installPaymentApplication() so that the payment
-#           setup is self-contained and safe to run independently.
+# Purpose : Ensure Python 3, gcc, python3-devel, and python3-pip are installed.
 installPython() {
-	echo -e "${CYAN}Checking if Python 3 is already installed...${RESET}"
+	echo -e "${CYAN}Ensuring Python 3 runtime and build dependencies are installed...${RESET}"
 
-	local py_cmd=""
-	if command -v python3 >/dev/null 2>&1; then
-		py_cmd="python3"
-	elif command -v python >/dev/null 2>&1; then
-		py_cmd="python"
-	fi
+	# This is safe: if packages are already present, dnf/yum will say "Nothing to do"
+	${SUDO:-} "${PKG_MGR}" install -y python3 python3-devel python3-pip gcc
+	validateStep $? \
+		"Python 3, pip, and build dependencies installed/verified successfully." \
+		"Failed to install Python 3 and its build dependencies."
 
-	if [[ -n "${py_cmd}" ]]; then
-		local py_version
-		py_version="$(${py_cmd} -c 'import sys; v=sys.version_info; print(f\"{v.major}.{v.minor}\")' 2>/dev/null || echo "0.0")"
-		local py_major="${py_version%%.*}"
-		local py_minor="${py_version#*.}"
-
-		echo -e "${YELLOW}Found Python command: ${py_cmd} (version: ${py_version})${RESET}"
-
-		if ((py_major > 3)) || ((py_major == 3 && py_minor >= 6)); then
-			echo -e "${GREEN}Python version is already >= 3.6. Skipping Python core installation, ensuring gcc & python3-devel...${RESET}"
-		else
-			echo -e "${YELLOW}Python version is < 3.6. Will try to install/upgrade to Python 3.6+.${RESET}"
-			py_cmd=""
-		fi
-	else
-		echo -e "${YELLOW}Python is not installed. Proceeding with fresh installation of Python 3.6+...${RESET}"
-	fi
-
-	# Try to install python3 / python36 + gcc + python3-devel
-	if [[ -z "${py_cmd}" ]]; then
-		echo -e "${CYAN}Installing Python 3 (python3 / python36), gcc, and python3-devel...${RESET}"
-
-		local python_candidates=(python3 python36)
-		local python_pkg=""
-		for pkg in "${python_candidates[@]}"; do
-			if ${SUDO:-} "${PKG_MGR}" list available "${pkg}" >/dev/null 2>&1; then
-				python_pkg="${pkg}"
-				break
-			fi
-		done
-
-		if [[ -z "${python_pkg}" ]]; then
-			echo -e "${RED}ERROR: Could not find a suitable Python 3 package (tried: ${python_candidates[*]}).${RESET}"
-			exit 1
-		fi
-
-		echo -e "${CYAN}Using Python package: ${python_pkg}${RESET}"
-		${SUDO:-} "${PKG_MGR}" install -y "${python_pkg}" gcc python3-devel
-		validateStep $? \
-			"Installed ${python_pkg}, gcc, and python3-devel successfully." \
-			"Failed to install ${python_pkg}, gcc, and/or python3-devel."
-	else
-		# Python 3.6+ already present; just ensure gcc & python3-devel
-		echo -e "${CYAN}Ensuring gcc and python3-devel are installed...${RESET}"
-
-		local ensure_pkgs=(gcc python3-devel)
-		for pkg in "${ensure_pkgs[@]}"; do
-			if rpm -q "${pkg}" >/dev/null 2>&1; then
-				echo -e "${YELLOW}Package '${pkg}' already installed. Skipping....${RESET}"
-			else
-				echo -e "${CYAN}Installing missing package: ${pkg}${RESET}"
-				${SUDO:-} "${PKG_MGR}" install -y "${pkg}"
-				validateStep $? \
-					"Package '${pkg}' installed successfully." \
-					"Failed to install package '${pkg}'."
-			fi
-		done
-	fi
-
-	# Final verification
-	echo -e "${CYAN}Verifying Python installation and version...${RESET}"
+	echo -e "${CYAN}Verifying Python 3 installation and version...${RESET}"
 	if command -v python3 >/dev/null 2>&1; then
 		local final_py_version
-		final_py_version="$(python3 -c 'import sys; v=sys.version_info; print(f\"{v.major}.{v.minor}\")' 2>/dev/null || echo "0.0")"
+		final_py_version="$(python3 - << 'EOF'
+import sys
+print("{}.{}".format(sys.version_info.major, sys.version_info.minor))
+EOF
+)"
 		echo -e "${GREEN}Python 3 is installed. Version: ${final_py_version}${RESET}"
 	else
 		echo -e "${RED}Python3 command not found even after installation. Please check package manager logs and repository configuration.${RESET}"
@@ -274,7 +215,7 @@ installPython() {
 installPaymentApplication() {
 	echo -e "${CYAN}Setting up Payment application...${RESET}"
 
-	# Ensure Python (3.6+), gcc, python3-devel are installed
+	# Ensure Python (3.x), gcc, python3-devel, python3-pip are installed
 	echo -e "${CYAN}Ensuring Python runtime and build dependencies are installed...${RESET}"
 	installPython
 	validateStep $? \
@@ -310,8 +251,8 @@ installPaymentApplication() {
 		"Failed to set ownership of ${PAYMENT_APP_DIR} to roboshop."
 
 	# Install Python dependencies as roboshop user
-	echo -e "${CYAN}Installing Python dependencies (pip3.6 install -r requirements.txt) as 'roboshop' user...${RESET}"
-	${SUDO:-} su - roboshop -s /bin/bash -c "cd ${PAYMENT_APP_DIR} && pip3.6 install -r requirements.txt" >/dev/null
+	echo -e "${CYAN}Installing Python dependencies (python3 -m pip install -r requirements.txt) as 'roboshop' user...${RESET}"
+	${SUDO:-} su - roboshop -s /bin/bash -c "cd ${PAYMENT_APP_DIR} && python3 -m pip install -r requirements.txt" >/dev/null
 	validateStep $? \
 		"Python dependencies installed successfully for payment service." \
 		"Failed to install Python dependencies for payment service."
