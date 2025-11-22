@@ -1,11 +1,22 @@
 [Unit]
-Description = Dispatch Service
+Description=Dispatch Service
+After=network.target
+
 [Service]
 User=roboshop
+WorkingDirectory=/app/dispatch
+
+# Environment variables for other services
+Environment=REDIS_HOST=redis.optimusprime.sbs
+Environment=CART_HOST=cart.optimusprime.sbs
+Environment=CART_PORT=8080
 Environment=AMQP_HOST=rabbitmq.optimusprime.sbs
 Environment=AMQP_USER=roboshop
 Environment=AMQP_PASS=roboshop123
-ExecStart=/app/dispatch
+
+# 👇 VERY IMPORTANT: use the real node binary + JS file
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
 SyslogIdentifier=dispatch
 
 [Install]
