@@ -6,16 +6,14 @@ After=network.target
 User=roboshop
 WorkingDirectory=/app/dispatch
 
-# Environment variables for other services
-Environment=REDIS_HOST=redis.optimusprime.sbs
-Environment=CART_HOST=cart.optimusprime.sbs
-Environment=CART_PORT=8080
+# RabbitMQ connection for dispatch
 Environment=AMQP_HOST=rabbitmq.optimusprime.sbs
 Environment=AMQP_USER=roboshop
 Environment=AMQP_PASS=roboshop123
 
-# 👇 VERY IMPORTANT: use the real node binary + JS file
-ExecStart=/usr/bin/node server.js
+# 👇 Run the compiled Go binary
+ExecStart=/app/dispatch/dispatch
+
 Restart=on-failure
 SyslogIdentifier=dispatch
 
