@@ -181,24 +181,59 @@ ensureMySQLClient() {
 }
 
 loadShippingSchema() {
-	echo -e "${CYAN}Loading Shipping schema into MySQL...${RESET}"
+    echo -e "${CYAN}Loading Shipping schemas into MySQL...${RESET}"
 
-	local DB_DIR="${SHIPPING_APP_DIR}/db"
-	local SCHEMA_FILE="${DB_DIR}/schema.sql"
+    local DB_DIR="${SHIPPING_APP_DIR}/db"
+    local FILES=("schema.sql" "app-user.sql" "master-data.sql")
 
-	echo -e "${CYAN}Using MySQL host: ${MYSQL_HOST}:${MYSQL_PORT}${RESET}"
-	echo -e "${CYAN}Using MySQL root user to load schema from*********: ${SCHEMA_FILE}${RESET}"
+    echo -e "${CYAN}Using MySQL host: ${MYSQL_HOST}:${MYSQL_PORT}${RESET}"
+    echo -e "${CYAN}Using MySQL root user to load SQL files from: ${DB_DIR}${RESET}"
 
-	MYSQL_PWD="${MYSQL_ROOT_PASSWORD}" \
-		mysql -h "${MYSQL_HOST}" -P "${MYSQL_PORT}" -uroot <"${SCHEMA_FILE}"
-	local rc=$?
+    # Ensure directory exists
+    if [[ ! -d "${DB_DIR}" ]]; then
+        echo -e "${RED}ERROR: DB directory not found: ${DB_DIR}${RESET}"
+        validateStep 1 \
+            "DB directory exists (${DB_DIR})." \
+            "DB directory missing (${DB_DIR})."
+        return 1
+    fi
 
-	validateStep "${rc}" \
-		"Shipping schema loaded successfully into MySQL on host ${MYSQL_HOST}." \
-		"Failed to load Shipping schema into MySQL on host ${MYSQL_HOST}."
+    local rc=0
 
-	echo -e "${GREEN}Shipping schema load completed.${RESET}"
+    for FILE in "${FILES[@]}"; do
+        local FULL_PATH="${DB_DIR}/${FILE}"
+
+        echo -e "${CYAN}--------------------------------------------------${RESET}"
+        echo -e "${CYAN}Processing SQL file: ${FULL_PATH}${RESET}"
+
+        if [[ ! -f "${FULL_PATH}" ]]; then
+            echo -e "${RED}ERROR: SQL file not found: ${FULL_PATH}${RESET}"
+            rc=1
+            validateStep "${rc}" \
+                "SQL file ${FULL_PATH} exists." \
+                "SQL file ${FULL_PATH} missing."
+            return "${rc}"
+        fi
+
+        # Run the SQL file as MySQL root
+        MYSQL_PWD="${MYSQL_ROOT_PASSWORD}" \
+            mysql -h "${MYSQL_HOST}" -P "${MYSQL_PORT}" -uroot < "${FULL_PATH}"
+        rc=$?
+
+        validateStep "${rc}" \
+            "Successfully executed ${FILE} on MySQL host ${MYSQL_HOST}." \
+            "Failed to execute ${FILE} on MySQL host ${MYSQL_HOST}."
+
+        # If any file fails, stop processing further
+        if [[ "${rc}" -ne 0 ]]; then
+            echo -e "${RED}Stopping further schema loads due to failure in ${FILE}.${RESET}"
+            return "${rc}"
+        fi
+    done
+
+    echo -e "${GREEN}All Shipping SQL files (schema.sql, app-user.sql, master-data.sql) loaded successfully.${RESET}"
 }
+
 
 # ==========================================================
 # Main
