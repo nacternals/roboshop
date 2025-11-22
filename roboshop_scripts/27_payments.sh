@@ -38,7 +38,7 @@ SCRIPT_BASE="${SCRIPT_NAME%.*}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 UTIL_PKG_FILE="${SCRIPT_DIR}/payment_util_packages.txt"
-PAYMENT_SERVICE_TEMPLATE="${SCRIPT_DIR}/payment.service"
+PAYMENT_SERVICE_TEMPLATE="${SCRIPT_DIR}/29_payment.service"
 SYSTEMD_SERVICE_FILE="/etc/systemd/system/payment.service"
 
 LOG_FILE="${LOGS_DIR}/${SCRIPT_BASE}-$(date +%F).log"
