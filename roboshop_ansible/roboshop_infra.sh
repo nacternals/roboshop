@@ -99,7 +99,7 @@ isItRootUser() {
 
 # ---------- Basic app requirements (/app) ----------
 basicAppRequirements() {
-	echo -e "${CYAN}Ensuring basic application requirements (${APP_DIR} dir and roboshop user)...${RESET}"
+	echo -e "${CYAN}Ensuring basic application requirements (${APP_DIR} dir and ansadmin user)...${RESET}"
 
 	echo -e "${CYAN}Checking ${APP_DIR} directory...${RESET}"
 	if [[ -d "${APP_DIR}" ]]; then
@@ -152,7 +152,6 @@ launchEc2Instances() {
 			--region "${AWS_REGION}" \
 			--image-id "${AMI_ID}" \
 			--instance-type "${itype}" \
-			# --subnet-id "${SUBNET_ID}" \
 			--security-group-ids "${SECURITY_GROUP_ID}" \
 			--key-name "${KEY_NAME}" \
 			--tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=${svc}},{Key=Project,Value=roboshop}]" \
