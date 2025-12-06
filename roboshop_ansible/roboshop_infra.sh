@@ -11,13 +11,13 @@ CYAN="\e[36m"
 RESET="\e[0m"
 
 # ---------- AWS / Infra Config (EDIT THESE) ----------
-AWS_REGION="ap-south-1"         # e.g. ap-south-1, us-east-1
-AMI_ID="ami-xxxxxxxxxxxxxxxxx"  # TODO: put your AMI ID here (Amazon Linux 2, etc.)
-SUBNET_ID="subnet-xxxxxxxx"     # TODO: your subnet ID
-SECURITY_GROUP_ID="sg-xxxxxxxx" # TODO: your security group ID
-KEY_NAME="your-keypair-name"    # TODO: your EC2 key pair name
+AWS_REGION="us-east-1"         # e.g. us-east-1
+AMI_ID="ami-0b4f379183e5706b9"  # TODO: put your AMI ID here (Amazon Linux 2, etc.)
+# SUBNET_ID="subnet-xxxxxxxx"     # TODO: your subnet ID
+SECURITY_GROUP_ID="sg-04357080f8248528a" # TODO: your security group ID
+KEY_NAME="ansible_practice_keypair"    # TODO: your EC2 key pair name
 
-HOSTED_ZONE_ID="ZXXXXXXXXXXXX" # TODO: Route53 hosted zone ID for optimusprime.sbs
+HOSTED_ZONE_ID="Z06046792KQ5HDP2YEDR4" # TODO: Route53 hosted zone ID for optimusprime.sbs
 DOMAIN_NAME="optimusprime.sbs"
 
 # Microservices list
@@ -137,7 +137,8 @@ checkAwsCli() {
 # ---------- Launch EC2 instances ----------
 launchEc2Instances() {
 	echo -e "${CYAN}Launching EC2 instances for Roboshop microservices...${RESET}"
-	echo -e "${YELLOW}AMI_ID=${AMI_ID}, SUBNET_ID=${SUBNET_ID}, SG=${SECURITY_GROUP_ID}, KEY_NAME=${KEY_NAME}${RESET}"
+	echo -e "${YELLOW}AMI_ID=${AMI_ID}, SG=${SECURITY_GROUP_ID}, KEY_NAME=${KEY_NAME}${RESET}"
+	# SUBNET_ID=${SUBNET_ID}, 
 
 	for svc in "${SERVICES[@]}"; do
 		local itype="${INSTANCE_TYPES[$svc]}"
@@ -151,7 +152,7 @@ launchEc2Instances() {
 			--region "${AWS_REGION}" \
 			--image-id "${AMI_ID}" \
 			--instance-type "${itype}" \
-			--subnet-id "${SUBNET_ID}" \
+			# --subnet-id "${SUBNET_ID}" \
 			--security-group-ids "${SECURITY_GROUP_ID}" \
 			--key-name "${KEY_NAME}" \
 			--tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=${svc}},{Key=Project,Value=roboshop}]" \
@@ -217,7 +218,7 @@ createRoute53ARecord() {
         \"ResourceRecordSet\": {
           \"Name\": \"${name}\",
           \"Type\": \"A\",
-          \"TTL\": 60,
+          \"TTL\": 1,
           \"ResourceRecords\": [
             {\"Value\": \"${value}\"}
           ]
