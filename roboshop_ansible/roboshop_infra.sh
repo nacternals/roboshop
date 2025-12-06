@@ -3,7 +3,6 @@
 set -euo pipefail
 
 # ---------- Colors ----------
-# These are used for colored output (also visible when you 'cat' the log in a terminal)
 RED="\e[31m"
 GREEN="\e[32m"
 YELLOW="\e[33m"
@@ -11,19 +10,49 @@ BLUE="\e[34m"
 CYAN="\e[36m"
 RESET="\e[0m"
 
-# ---------- Config ----------
-TIMESTAMP="$(date +"%F-%H-%M-%S")" # Full timestamp of this run
+# ---------- AWS / Infra Config (EDIT THESE) ----------
+AWS_REGION="ap-south-1"         # e.g. ap-south-1, us-east-1
+AMI_ID="ami-xxxxxxxxxxxxxxxxx"  # TODO: put your AMI ID here (Amazon Linux 2, etc.)
+SUBNET_ID="subnet-xxxxxxxx"     # TODO: your subnet ID
+SECURITY_GROUP_ID="sg-xxxxxxxx" # TODO: your security group ID
+KEY_NAME="your-keypair-name"    # TODO: your EC2 key pair name
 
-# Application root and logs directory (runtime paths)
-APP_DIR="/app"                   # Application root directory
-LOGS_DIRECTORY="${APP_DIR}/logs" # Central log directory -> /app/logs
+HOSTED_ZONE_ID="ZXXXXXXXXXXXX" # TODO: Route53 hosted zone ID for optimusprime.sbs
+DOMAIN_NAME="optimusprime.sbs"
 
-# Script / repo location (where git pull happens)
-SCRIPT_NAME="$(basename "$0")"                             # e.g. roboshop_infra.sh
-SCRIPT_BASE="${SCRIPT_NAME%.*}"                            # e.g. roboshop_infra
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" # Directory where script lives
+# Microservices list
+SERVICES=(mongodb redis mysql rabbitmq shipping user cart catalogue payments dispatch web)
 
-# Log file: one per day, per script
+# Instance type mapping
+declare -A INSTANCE_TYPES
+INSTANCE_TYPES=(
+	[mongodb]="t3.medium"
+	[redis]="t3.medium"
+	[mysql]="t3.medium"
+	[rabbitmq]="t3.medium"
+	[shipping]="t3.medium"
+	[user]="t2.micro"
+	[cart]="t2.micro"
+	[catalogue]="t2.micro"
+	[payments]="t2.micro"
+	[dispatch]="t2.micro"
+	[web]="t2.micro"
+)
+
+# Will hold instance IDs and IPs
+declare -A INSTANCE_IDS
+declare -A PRIVATE_IPS
+declare -A PUBLIC_IPS
+
+# ---------- Paths & Logs ----------
+TIMESTAMP="$(date +"%F-%H-%M-%S")"
+
+APP_DIR="/app"
+LOGS_DIRECTORY="${APP_DIR}/logs"
+
+SCRIPT_NAME="$(basename "$0")"
+SCRIPT_BASE="${SCRIPT_NAME%.*}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log"
 
 printBoxHeader() {
@@ -37,9 +66,6 @@ printBoxHeader() {
 }
 
 # ---------- Helper: validate step ----------
-# Usage pattern:
-#   some_command
-#   validateStep $? "success message" "failure message"
 validateStep() {
 	local STATUS="$1"
 	local SUCCESS_MSG="$2"
@@ -53,34 +79,7 @@ validateStep() {
 	fi
 }
 
-# ---------- Basic app requirements (/app) ----------
-basicAppRequirements() {
-	echo -e "${CYAN}Ensuring basic application requirements (${APP_DIR} dir and roboshop user)...${RESET}"
-
-	# 1) Ensure APP_DIR directory exists
-	echo -e "${CYAN}Checking ${APP_DIR} directory...${RESET}"
-	if [[ -d "${APP_DIR}" ]]; then
-		echo -e "${YELLOW}${APP_DIR} directory already exists. Skipping creation....${RESET}"
-	else
-		echo -e "${CYAN}${APP_DIR} directory not found. Creating ${APP_DIR}....${RESET}"
-		${SUDO:-} mkdir -p "${APP_DIR}"
-		validateStep $? \
-			"${APP_DIR} directory created successfully." \
-			"Failed to create ${APP_DIR} directory."
-	fi
-
-
-	# 2) Ensure APP_DIR ownership is set to ansadmin
-	echo -e "${CYAN}Setting ownership of ${APP_DIR} to user 'ansadmin'...${RESET}"
-	${SUDO:-} chown -R ansadmin:ansadmin "${APP_DIR}"
-	validateStep $? \
-		"Ownership of ${APP_DIR} set to ansadmin successfully." \
-		"Failed to set ownership of ${APP_DIR} to ansadmin."
-}
-
 # ---------- Root / sudo handling ----------
-# Sets SUDO variable as "sudo" for non-root users (if sudo is available),
-# or empty string if script is already running as root.
 isItRootUser() {
 	echo -e "${CYAN}Checking whether script is running as ROOT...${RESET}"
 
@@ -98,20 +97,196 @@ isItRootUser() {
 	fi
 }
 
+# ---------- Basic app requirements (/app) ----------
+basicAppRequirements() {
+	echo -e "${CYAN}Ensuring basic application requirements (${APP_DIR} dir and roboshop user)...${RESET}"
+
+	echo -e "${CYAN}Checking ${APP_DIR} directory...${RESET}"
+	if [[ -d "${APP_DIR}" ]]; then
+		echo -e "${YELLOW}${APP_DIR} directory already exists. Skipping creation....${RESET}"
+	else
+		echo -e "${CYAN}${APP_DIR} directory not found. Creating ${APP_DIR}....${RESET}"
+		${SUDO:-} mkdir -p "${APP_DIR}"
+		validateStep $? \
+			"${APP_DIR} directory created successfully." \
+			"Failed to create ${APP_DIR} directory."
+	fi
+
+	echo -e "${CYAN}Setting ownership of ${APP_DIR} to user 'ansadmin'...${RESET}"
+	${SUDO:-} chown -R ansadmin:ansadmin "${APP_DIR}"
+	validateStep $? \
+		"Ownership of ${APP_DIR} set to ansadmin successfully." \
+		"Failed to set ownership of ${APP_DIR} to ansadmin."
+}
+
+# ---------- Check AWS CLI ----------
+checkAwsCli() {
+	echo -e "${CYAN}Checking AWS CLI availability...${RESET}"
+	if ! command -v aws >/dev/null 2>&1; then
+		echo -e "${RED}AWS CLI is not installed or not in PATH. Install awscli v2 first.${RESET}"
+		exit 1
+	fi
+
+	# Optional: show identity & region
+	echo -e "${CYAN}AWS caller identity...${RESET}"
+	aws sts get-caller-identity || echo -e "${YELLOW}Warning: Unable to get caller identity (check IAM role).${RESET}"
+
+	echo -e "${CYAN}Using AWS Region: ${AWS_REGION}${RESET}"
+}
+
+# ---------- Launch EC2 instances ----------
+launchEc2Instances() {
+	echo -e "${CYAN}Launching EC2 instances for Roboshop microservices...${RESET}"
+	echo -e "${YELLOW}AMI_ID=${AMI_ID}, SUBNET_ID=${SUBNET_ID}, SG=${SECURITY_GROUP_ID}, KEY_NAME=${KEY_NAME}${RESET}"
+
+	for svc in "${SERVICES[@]}"; do
+		local itype="${INSTANCE_TYPES[$svc]}"
+
+		echo -e "${BLUE}-------------------------------------------${RESET}"
+		echo -e "${CYAN}Launching service: ${svc} (Instance type: ${itype})${RESET}"
+
+		# NOTE: set +e so we can handle failures with validateStep
+		set +e
+		instance_id=$(aws ec2 run-instances \
+			--region "${AWS_REGION}" \
+			--image-id "${AMI_ID}" \
+			--instance-type "${itype}" \
+			--subnet-id "${SUBNET_ID}" \
+			--security-group-ids "${SECURITY_GROUP_ID}" \
+			--key-name "${KEY_NAME}" \
+			--tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=${svc}},{Key=Project,Value=roboshop}]" \
+			--query 'Instances[0].InstanceId' \
+			--output text 2>&1)
+		rc=$?
+		set -e
+
+		if [[ ${rc} -ne 0 ]]; then
+			echo -e "${RED}EC2 run-instances failed for ${svc}:${RESET} ${instance_id}"
+			exit ${rc}
+		fi
+
+		# instance_id variable contains either the ID or an error; sanity check:
+		if [[ "${instance_id}" != i-* ]]; then
+			echo -e "${RED}Unexpected instance ID for ${svc}: ${instance_id}${RESET}"
+			exit 1
+		fi
+
+		INSTANCE_IDS["$svc"]="${instance_id}"
+		echo -e "${GREEN}${svc}: Launched instance ${instance_id}${RESET}"
+
+		echo -e "${CYAN}Waiting for ${instance_id} to reach 'running' state...${RESET}"
+		aws ec2 wait instance-running \
+			--region "${AWS_REGION}" \
+			--instance-ids "${instance_id}"
+		validateStep $? \
+			"${svc} instance is now running." \
+			"Error while waiting for ${svc} instance to be running."
+
+		# Fetch Private and Public IPs
+		private_ip=$(aws ec2 describe-instances \
+			--region "${AWS_REGION}" \
+			--instance-ids "${instance_id}" \
+			--query 'Reservations[0].Instances[0].PrivateIpAddress' \
+			--output text)
+		public_ip=$(aws ec2 describe-instances \
+			--region "${AWS_REGION}" \
+			--instance-ids "${instance_id}" \
+			--query 'Reservations[0].Instances[0].PublicIpAddress' \
+			--output text)
+
+		PRIVATE_IPS["$svc"]="${private_ip}"
+		PUBLIC_IPS["$svc"]="${public_ip}"
+
+		echo -e "${GREEN}${svc}: Private IP = ${private_ip}, Public IP = ${public_ip}${RESET}"
+	done
+}
+
+# ---------- Route53 Helper ----------
+createRoute53ARecord() {
+	local name="$1"
+	local value="$2"
+
+	echo -e "${CYAN}Creating/Updating Route53 A record: ${name} -> ${value}${RESET}"
+
+	set +e
+	aws route53 change-resource-record-sets \
+		--hosted-zone-id "${HOSTED_ZONE_ID}" \
+		--change-batch "{
+      \"Changes\": [{
+        \"Action\": \"UPSERT\",
+        \"ResourceRecordSet\": {
+          \"Name\": \"${name}\",
+          \"Type\": \"A\",
+          \"TTL\": 60,
+          \"ResourceRecords\": [
+            {\"Value\": \"${value}\"}
+          ]
+        }
+      }]
+    }" >/dev/null 2>&1
+	rc=$?
+	set -e
+
+	validateStep ${rc} \
+		"Route53 record created/updated: ${name} -> ${value}" \
+		"Failed to create Route53 A record for ${name}"
+}
+
+# ---------- Create Route53 records ----------
+createRoute53Records() {
+	echo -e "${CYAN}Creating Route53 A records for optimusprime.sbs and microservices...${RESET}"
+
+	# Root domain -> use WEB public IP (common pattern)
+	local root_ip="${PUBLIC_IPS[web]:-}"
+	if [[ -z "${root_ip}" || "${root_ip}" == "None" ]]; then
+		echo -e "${YELLOW}Warning: No public IP found for 'web' service. Skipping ${DOMAIN_NAME} root A record.${RESET}"
+	else
+		createRoute53ARecord "${DOMAIN_NAME}" "${root_ip}"
+	fi
+
+	# Microservice subdomains -> use Private IPs
+	for svc in "${SERVICES[@]}"; do
+		local priv_ip="${PRIVATE_IPS[$svc]:-}"
+		local fqdn="${svc}.${DOMAIN_NAME}"
+
+		if [[ -z "${priv_ip}" || "${priv_ip}" == "None" ]]; then
+			echo -e "${YELLOW}Warning: No private IP for ${svc}. Skipping DNS for ${fqdn}.${RESET}"
+			continue
+		fi
+
+		createRoute53ARecord "${fqdn}" "${priv_ip}"
+	done
+}
+
+# ---------- Summary ----------
+printSummary() {
+	echo -e "${BLUE}================= SUMMARY =================${RESET}"
+	echo -e "${CYAN}Service\t\tInstance ID\t\tPrivate IP\tPublic IP${RESET}"
+	for svc in "${SERVICES[@]}"; do
+		printf "%-10s\t%-20s\t%-15s\t%-15s\n" \
+			"${svc}" \
+			"${INSTANCE_IDS[$svc]:-N/A}" \
+			"${PRIVATE_IPS[$svc]:-N/A}" \
+			"${PUBLIC_IPS[$svc]:-N/A}"
+	done
+	echo -e "${BLUE}===========================================${RESET}"
+}
 
 # ---------- Main ----------
 main() {
-	# Ensure log dir exists
 	mkdir -p "${LOGS_DIRECTORY}"
 
-	# Send everything (stdout + stderr) to log file from here on
+	# Send stdout+stderr to log file
 	exec >>"${LOG_FILE}" 2>&1
 
 	printBoxHeader "Roboshop Infra Script Execution" "${TIMESTAMP}"
-	echo "App Directory: ${APP_DIR}"
-	echo "Log Directory: ${LOGS_DIRECTORY}"
-	echo "Log File Location and Name: ${LOG_FILE}"
-	echo "Script Directory: ${SCRIPT_DIR}"
+	echo "App Directory       : ${APP_DIR}"
+	echo "Log Directory       : ${LOGS_DIRECTORY}"
+	echo "Log File            : ${LOG_FILE}"
+	echo "Script Directory    : ${SCRIPT_DIR}"
+	echo "AWS Region          : ${AWS_REGION}"
+	echo "Domain Name         : ${DOMAIN_NAME}"
+	echo "Hosted Zone ID      : ${HOSTED_ZONE_ID}"
 
 	echo -e "\n${CYAN}Calling isItRootUser() to validate the user...${RESET}"
 	isItRootUser
@@ -119,6 +294,17 @@ main() {
 	echo -e "\n${CYAN}Calling basicAppRequirements()....${RESET}"
 	basicAppRequirements
 
+	echo -e "\n${CYAN}Checking AWS CLI and IAM Role....${RESET}"
+	checkAwsCli
+
+	echo -e "\n${CYAN}Launching EC2 instances for all Roboshop microservices....${RESET}"
+	launchEc2Instances
+
+	echo -e "\n${CYAN}Creating Route53 DNS records for all microservices....${RESET}"
+	createRoute53Records
+
+	echo -e "\n${CYAN}Printing summary....${RESET}"
+	printSummary
 
 	echo -e "\n${GREEN}Roboshop Infra setup script completed successfully.${RESET}"
 }
