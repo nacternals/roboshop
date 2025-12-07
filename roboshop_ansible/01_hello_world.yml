@@ -1,0 +1,9 @@
+---
+- name: Hello World.....
+  hosts: localhost
+  become: true
+
+  tasks:
+    - name: My First Hello World Playbook
+      ansible.builtin.debug:
+        msg: "Hello Neo.....Matrix is waiting for"
