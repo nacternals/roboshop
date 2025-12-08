@@ -1,0 +1,13 @@
+---
+- name: Create ansadmin user in all Roboshop Microservices
+  hosts: roboshop
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Creating a common Ansible user (ansadmin) in all Roboshop Microservices
+      ansible.builtin.user:
+        name: ansadmin
+        state: present
+        shell: /bin/bash
+        create_home: yes
