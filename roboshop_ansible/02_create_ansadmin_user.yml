@@ -11,3 +11,4 @@
         state: present
         shell: /bin/bash
         create_home: yes
+        password: "{{ ansadmin_password_hash }}"
