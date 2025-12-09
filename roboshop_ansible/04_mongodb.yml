@@ -1,0 +1,48 @@
+---
+- name: Setting-up Roboshop Mongodb Microservice
+  hosts: mongodb
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Creating Mongodb Repo File
+      ansible.builtin.copy:
+        dest: /etc/yum.repos.d/mongo.repo
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [mongodb-org-4.2]
+          name=MongoDB Repository
+          baseurl=https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/4.2/x86_64/
+          gpgcheck=0
+          enabled=1
+
+    - name: Install Mongodb
+      ansible.builtin.dnf:
+        name: mongodb-org
+        state: present
+
+    - name: Listen Remote Ports for Mongodb (bind 0.0.0.0)
+      ansible.builtin.lineinfile:
+        path: /etc/mongod.conf
+        regexp: '^\s*bindIp:'
+        line: "  bindIp: 0.0.0.0"
+        backrefs: yes
+      notify: Restart mongod
+
+    - name: Enable Mongodb
+      ansible.builtin.systemd:
+        name: mongod
+        enabled: true
+
+    - name: Start Mongodb
+      ansible.builtin.systemd:
+        name: mongod
+        state: started
+
+  handlers:
+    - name: Restart mongod
+      ansible.builtin.systemd:
+        name: mongod
+        state: restarted
