@@ -6,30 +6,32 @@
 
   vars:
     log_dir: "/app/logs"
-    log_timestamp: "{{ lookup('pipe', 'date +%Y-%m-%d_%H-%M-%S') }}"
-    log_file: "{{ log_dir }}/mongodb_{{ log_timestamp }}.log"
+    log_date: "{{ lookup('pipe', 'date +%Y-%m-%d') }}"
+    log_time: "{{ lookup('pipe', 'date +%H-%M-%S') }}"
+    log_file: "{{ log_dir }}/mongodb_{{ log_date }}.log"
 
   tasks:
 
     # -----------------------------
-    #  LOG DIRECTORY + START LOG
+    #  LOG DIRECTORY
     # -----------------------------
-
     - name: Ensure /app/logs directory exists
       ansible.builtin.file:
         path: "{{ log_dir }}"
         state: directory
         mode: '0755'
 
+    # -----------------------------
+    #  START LOG
+    # -----------------------------
     - name: Log - Playbook Started
       ansible.builtin.shell: |
-        echo "[{{ log_timestamp }}] START: MongoDB Setup started on {{ inventory_hostname }}" >> {{ log_file }}
+        echo "[{{ log_date }} {{ log_time }}] START: MongoDB Setup started on {{ inventory_hostname }}" >> {{ log_file }}
       changed_when: false
 
     # -----------------------------
-    #  CREATE REPO FILE
+    #  REPO FILE
     # -----------------------------
-
     - name: Create MongoDB Repo File
       ansible.builtin.copy:
         dest: /etc/yum.repos.d/mongo.repo
@@ -45,27 +47,25 @@
 
     - name: Log - Repo File Created/Verified
       ansible.builtin.shell: |
-        echo "[{{ log_timestamp }}] Repo file created or verified on {{ inventory_hostname }}" >> {{ log_file }}
+        echo "[{{ log_date }} {{ log_time }}] Repo verified/created" >> {{ log_file }}
       changed_when: false
 
     # -----------------------------
     #  INSTALL MONGODB
     # -----------------------------
-
     - name: Install MongoDB
       ansible.builtin.dnf:
         name: mongodb-org
         state: present
 
-    - name: Log - Installation Completed
+    - name: Log - MongoDB Installed/Verified
       ansible.builtin.shell: |
-        echo "[{{ log_timestamp }}] MongoDB installation verified on {{ inventory_hostname }}" >> {{ log_file }}
+        echo "[{{ log_date }} {{ log_time }}] MongoDB installation verified" >> {{ log_file }}
       changed_when: false
 
     # -----------------------------
     #  UPDATE BIND IP
     # -----------------------------
-
     - name: Ensure bindIp is set to 0.0.0.0
       ansible.builtin.lineinfile:
         path: /etc/mongod.conf
@@ -75,38 +75,36 @@
 
     - name: Log - bindIp Updated/Verified
       ansible.builtin.shell: |
-        echo "[{{ log_timestamp }}] bindIp set to 0.0.0.0 on {{ inventory_hostname }}" >> {{ log_file }}
+        echo "[{{ log_date }} {{ log_time }}] bindIp set to 0.0.0.0" >> {{ log_file }}
       changed_when: false
 
     # -----------------------------
     #  ENABLE + START SERVICE
     # -----------------------------
-
     - name: Enable MongoDB
       ansible.builtin.systemd:
         name: mongod
         enabled: true
 
-    - name: Log - Enabled
+    - name: Log - Enabled on Boot
       ansible.builtin.shell: |
-        echo "[{{ log_timestamp }}] MongoDB service enabled on boot" >> {{ log_file }}
+        echo "[{{ log_date }} {{ log_time }}] MongoDB enabled on boot" >> {{ log_file }}
       changed_when: false
 
-    - name: Start MongoDB
+    - name: Start/Restart MongoDB
       ansible.builtin.systemd:
         name: mongod
         state: restarted
 
-    - name: Log - Started
+    - name: Log - MongoDB Started/Restarted
       ansible.builtin.shell: |
-        echo "[{{ log_timestamp }}] MongoDB service started/restarted" >> {{ log_file }}
+        echo "[{{ log_date }} {{ log_time }}] MongoDB service started/restarted" >> {{ log_file }}
       changed_when: false
 
     # -----------------------------
-    #  PLAY END LOG
+    #  END LOG
     # -----------------------------
-
     - name: Log - Play Completed
       ansible.builtin.shell: |
-        echo "[{{ log_timestamp }}] END: MongoDB Setup completed on {{ inventory_hostname }}" >> {{ log_file }}
+        echo "[{{ log_date }} {{ log_time }}] END: MongoDB Setup Completed" >> {{ log_file }}
       changed_when: false
