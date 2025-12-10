@@ -72,7 +72,7 @@
         state: restarted
 
     - name: Copying Nginx Reverse Proxy Config File
-      ansible.builtin.file:
+      ansible.builtin.copy:
         src: roboshop.conf
         dest: /etc/nginx/default.d/roboshop.conf
 
