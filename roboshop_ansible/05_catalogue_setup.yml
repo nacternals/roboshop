@@ -1,0 +1,55 @@
+---
+- name: Roboshop Catalogue Microservice Setup
+  hosts: catalogue
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Creating App Directory
+      ansible.builtin.file:
+        path: /app
+        state: directory
+        mode: 0755
+
+    - name: Creating Log Directory
+      ansible.builtin.file:
+        path: /app/log
+        state: directory
+        mode: 0755
+
+    - name: Creating Roboshop Application Log File
+      ansible.builtin.file:
+        path: /app/log/catalogue.log
+        state: touch
+        mode: 0755
+
+    - name: Creating Roboshop Application User (roboshop)
+      ansible.builtin.user:
+        name: roboshop
+        state: present
+        create_home: yes
+        shell: /bin/bash
+
+    - name: Disabling NodeJS Default Version 10
+      ansible.builtin.command: "dnf module disable nodejs:10 -y"
+
+    - name: Enabling NodeJS Version 18
+      ansible.builtin.command: "dnf module enable nodejs:18 -y"
+
+    - name: Installing NodeJS:18
+      ansible.builtin.package:
+        name: nodejs:18
+        state: present
+
+    - name: Downloading Catalogue Application Code
+      ansible.builtin.get_url:
+        url: https://roboshop-builds.s3.amazonaws.com/catalogue.zip
+        dest: /tmp/catalogue.zip
+
+    - name: Unzipping/Extracting Catalogue Application Code
+      ansible.builtin.unarchive:
+        src: /tmp/catalogue.zip
+        dest: /app/catalogue
+
+    # - name: Install dependencies (npm install)
+    #   ansible.builtin.command:
