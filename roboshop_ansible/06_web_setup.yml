@@ -5,56 +5,68 @@
   gather_facts: true
 
   tasks:
-  - name: Creating App Directory
-    ansible.builtin.file:
-      path: /app
-      state: directory
-      mode: 0755
+    - name: Creating App Directory
+      ansible.builtin.file:
+        path: /app
+        state: directory
+        mode: 0755
 
-  - name: Creating Log Directory
-    ansible.builtin.file:
-      path: /app/log
-      state: directory
-      mode: 0755
+    - name: Creating Log Directory
+      ansible.builtin.file:
+        path: /app/log
+        state: directory
+        mode: 0755
 
-  - name: Creating Application Log File
-    ansible.builtin.file:
-      path: /app/log/web_date_time.log
-      state: touch
-      mode: 0755
+    - name: Creating Application Log File
+      ansible.builtin.file:
+        path: /app/log/web_date_time.log
+        state: touch
+        mode: 0755
 
-  - name: Creating Roboshop Applicaton User (roboshop)
-    ansible.builtin.user:
-      name: roboshop
-      state: present
-      create_home: yes
-      shell: /bin/bash
+    - name: Creating Roboshop Applicaton User (roboshop)
+      ansible.builtin.user:
+        name: roboshop
+        state: present
+        create_home: yes
+        shell: /bin/bash
 
-  - name: Installing Nginx Package
-    ansible.builtin.package:
-      name: nginx
-      state: present
+    - name: Installing Nginx Package
+      ansible.builtin.package:
+        name: nginx
+        state: present
 
-  - name: Enabling Nginx Service
-    ansible.builtin.service:
-      name: nginx
-      enabled: yes
-  
-  - name: Staring Nginx Service
-    ansible.builtin.service:
-      name: nginx
-      state: started
+    - name: Enabling Nginx Service
+      ansible.builtin.service:
+        name: nginx
+        enabled: yes
 
-  # - name:
+    - name: Staring Nginx Service
+      ansible.builtin.service:
+        name: nginx
+        state: started
 
-  # - name:
+    - name: Deleting Nginx Default Landing Pages
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      with_fileglob:
+        - "/usr/share/nginx/html/*"
 
-  # - name:
+    - name: Downloading Roboshop Web Microservice Application Code
+      ansible.builtin.get_url:
+      url: https://roboshop-builds.s3.amazonaws.com/web.zip
+      dest: /tmp/web.zip
 
-  # - name:
+    - name: Unzipping/Extracting Roboshop Web Microservice Application Code
+      ansible.builtin.unarchive:
+        src: /tmp/web.zip
+        dest: /app
+        remote_src: yes
 
-  # - name:
+    # - name:
 
-  # - name:
+    # - name:
 
-  # - name:
+    # - name:
+
+    # - name:
