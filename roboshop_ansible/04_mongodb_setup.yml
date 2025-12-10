@@ -1,110 +1,65 @@
 ---
-- name: Setting-up Roboshop Mongodb Microservice
+- name: Roboshop MongoDB Microservice Setup
   hosts: mongodb
   become: true
-  gather_facts: false
-
-  vars:
-    log_dir: "/app/logs"
-    log_date: "{{ lookup('pipe', 'date +%Y-%m-%d') }}"
-    log_time: "{{ lookup('pipe', 'date +%H-%M-%S') }}"
-    log_file: "{{ log_dir }}/mongodb_{{ log_date }}.log"
+  gather-facts: true
 
   tasks:
-
-    # -----------------------------
-    #  LOG DIRECTORY
-    # -----------------------------
-    - name: Ensure /app/logs directory exists
-      ansible.builtin.file:
-        path: "{{ log_dir }}"
+    - name: Creating Roboshop App Direcotry
+      ansible.bulitin.file:
+        path: /app
         state: directory
-        mode: '0755'
+        mode: 0755
 
-    # -----------------------------
-    #  START LOG
-    # -----------------------------
-    - name: Log - Playbook Started
-      ansible.builtin.shell: |
-        echo "[{{ log_date }} {{ log_time }}] START: MongoDB Setup started on {{ inventory_hostname }}" >> {{ log_file }}
-      changed_when: false
+    - name: Creating Roboshop Log Direcotry
+      ansible.bulitin.file:
+        path: /app/log
+        state: directory
+        mode: 0755
 
-    # -----------------------------
-    #  REPO FILE
-    # -----------------------------
-    - name: Create MongoDB Repo File
+    - name: Creating MongoDB Log File
+      ansible.builtin.file:
+        path: /app/log/mongodb.log
+        state: present
+        mode: 0755
+
+    - name: Creating Roboshop User
+      ansible.builtin.user:
+        name: roboshop
+        state: present
+        create_home: yes
+        shell: /bin/bash
+
+    - name: Copy MongoDB Repo File
       ansible.builtin.copy:
-        dest: /etc/yum.repos.d/mongo.repo
-        owner: root
-        group: root
-        mode: '0644'
-        content: |
-          [mongodb-org-4.2]
-          name=MongoDB Repository
-          baseurl=https://repo.mongodb.org/yum/redhat/$releasever/mongodb-org/4.2/x86_64/
-          gpgcheck=0
-          enabled=1
+        src: mongodb.repo
+        dest: /etc/yum.repos.d/mongodb.repo
+        owner: roboshop
+        group: roboshop
+        mode: 0755
 
-    - name: Log - Repo File Created/Verified
-      ansible.builtin.shell: |
-        echo "[{{ log_date }} {{ log_time }}] Repo verified/created" >> {{ log_file }}
-      changed_when: false
-
-    # -----------------------------
-    #  INSTALL MONGODB
-    # -----------------------------
-    - name: Install MongoDB
-      ansible.builtin.dnf:
-        name: mongodb-org
+    - name: Installing MongoDB
+      ansible.builtin.package:
+        name: mongodb
         state: present
 
-    - name: Log - MongoDB Installed/Verified
-      ansible.builtin.shell: |
-        echo "[{{ log_date }} {{ log_time }}] MongoDB installation verified" >> {{ log_file }}
-      changed_when: false
-
-    # -----------------------------
-    #  UPDATE BIND IP
-    # -----------------------------
-    - name: Ensure bindIp is set to 0.0.0.0
-      ansible.builtin.lineinfile:
-        path: /etc/mongod.conf
-        regexp: '^\s*bindIp:'
-        line: '  bindIp: 0.0.0.0'
-        backrefs: yes
-
-    - name: Log - bindIp Updated/Verified
-      ansible.builtin.shell: |
-        echo "[{{ log_date }} {{ log_time }}] bindIp set to 0.0.0.0" >> {{ log_file }}
-      changed_when: false
-
-    # -----------------------------
-    #  ENABLE + START SERVICE
-    # -----------------------------
-    - name: Enable MongoDB
-      ansible.builtin.systemd:
+    - name: Enabling MongoDB
+      ansible.builtin.service:
         name: mongod
-        enabled: true
+        enabled: yes
 
-    - name: Log - Enabled on Boot
-      ansible.builtin.shell: |
-        echo "[{{ log_date }} {{ log_time }}] MongoDB enabled on boot" >> {{ log_file }}
-      changed_when: false
+    - name: Staring MongoDB
+      ansible.builtin.service:
+        name: mongod
+        state: started
 
-    - name: Start/Restart MongoDB
-      ansible.builtin.systemd:
+    - name: Modifying BindIP to 0.0.0.0
+      ansible.builtin.replace:
+        path: /etc/mongod.conf
+        regexp: "127.0.0.1"
+        replace: "0.0.0.0"
+
+    - name: Restaring mongod service
+      ansible.builtin.service:
         name: mongod
         state: restarted
-
-    - name: Log - MongoDB Started/Restarted
-      ansible.builtin.shell: |
-        echo "[{{ log_date }} {{ log_time }}] MongoDB service started/restarted" >> {{ log_file }}
-      changed_when: false
-
-    # -----------------------------
-    #  END LOG
-    # -----------------------------
-    - name: Log - Play Completed
-      ansible.builtin.shell: |
-        echo "[{{ log_date }} {{ log_time }}] END: MongoDB Setup Completed" >> {{ log_file }}
-      changed_when: false
