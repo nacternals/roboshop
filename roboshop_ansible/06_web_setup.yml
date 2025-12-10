@@ -2,7 +2,7 @@
 - name: Roboshop Web Microservice Setup
   hosts: web
   become: true
-  gather_fats: true
+  gather_facts: true
 
   tasks:
   - name: Creating App Directory
