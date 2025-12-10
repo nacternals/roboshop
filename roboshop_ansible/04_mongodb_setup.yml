@@ -6,7 +6,7 @@
 
   tasks:
     - name: Creating Roboshop App Direcotry
-      ansible.bulitin.file:
+      ansible.builtin.file:
         path: /app
         state: directory
         mode: 0755
