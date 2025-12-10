@@ -54,8 +54,8 @@
 
     - name: Downloading Roboshop Web Microservice Application Code
       ansible.builtin.get_url:
-      url: https://roboshop-builds.s3.amazonaws.com/web.zip
-      dest: /tmp/web.zip
+        url: https://roboshop-builds.s3.amazonaws.com/web.zip
+        dest: /tmp/web.zip
 
     - name: Unzipping/Extracting Roboshop Web Microservice Application Code
       ansible.builtin.unarchive:
