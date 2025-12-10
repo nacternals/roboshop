@@ -46,9 +46,7 @@
         state: started
 
     - name: Delete Nginx default landing pages
-      ansible.builtin.shell:
-        cmd: "rm -rf /usr/share/nginx/html/*"
-        warn: false
+      ansible.builtin.shell: "rm -rf /usr/share/nginx/html/*"
 
     - name: Downloading Roboshop Web Microservice Application Code
       ansible.builtin.get_url:
