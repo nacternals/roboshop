@@ -50,7 +50,6 @@
         cmd: "rm -rf /usr/share/nginx/html/*"
         warn: false
 
-
     - name: Downloading Roboshop Web Microservice Application Code
       ansible.builtin.get_url:
         url: https://roboshop-builds.s3.amazonaws.com/web.zip
