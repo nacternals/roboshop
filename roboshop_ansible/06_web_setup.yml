@@ -69,7 +69,7 @@
     - name: Restarting Nginx Service
       ansible.builtin.service:
         name: nginx
-        state: restart
+        state: restarted
 
     # - name:
 
