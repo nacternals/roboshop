@@ -87,4 +87,5 @@
         state: present
     
     - name: Loading Catalogue Schema into MongoDB
-      ansible.builtin.command: "mongo --host mongodb.optimusprime.sbs </app/schema/catalogue.js"
+      ansible.builtin.command: "mongo --host mongodb.optimusprime.sbs /app/schema/catalogue.js"
+      
