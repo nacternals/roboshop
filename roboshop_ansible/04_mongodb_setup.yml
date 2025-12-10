@@ -40,7 +40,7 @@
 
     - name: Installing MongoDB
       ansible.builtin.package:
-        name: mongod
+        name: mongodb-org
         state: present
 
     - name: Enabling MongoDB
