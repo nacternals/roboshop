@@ -52,5 +52,39 @@
         dest: /app
         remote_src: yes
 
-    # - name: Install dependencies (npm install)
-    #   ansible.builtin.command:
+    - name: Installing Dependencies (npm install)
+      ansible.builtin.command: npm install
+      args:
+        chdir: /app
+
+    - name: Copying catalogue.service File
+      ansible.builtin.copy:
+        src: catalogue.service
+        dest: /etc/systemd/system/catalogue.service
+
+    - name: Reload SystemD Daemon
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Enable Catalogue service
+      ansible.builtin.service:
+        name: catalogue
+        enabled: true
+
+    - name: Start Catalogue Service
+      ansible.builtin.service:
+        name: catalogue
+        state: started
+
+    - name: Copying mongodb.repo to /etc/yum.repos.d/mongodb.repo
+      ansible.builtin.copy:
+        src: mongodb.repo
+        dest: /etc/yum.repos.d/mongodb.repo
+    
+    - name: Installing MongoDB Client
+      ansible.builtin.package:
+        name: mongodb-org-shell
+        state: present
+    
+    - name: Loading Catalogue Schema into MongoDB
+      ansible.builtin.command: "mongo --host mongodb.optimusprime.sbs </app/schema/catalogue.js"
