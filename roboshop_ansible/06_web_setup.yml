@@ -5,28 +5,56 @@
   gather_fats: true
 
   tasks:
-  - name:
+  - name: Creating App Directory
+    ansible.builtin.file:
+      path: /app
+      state: directory
+      mode: 0755
 
-  - name:
+  - name: Creating Log Directory
+    ansible.builtin.file:
+      path: /app/log
+      state: directory
+      mode: 0755
 
-  - name:
+  - name: Creating Application Log File
+    ansible.builtin.file:
+      path: /app/log/web_date_time.log
+      state: touch
+      mode: 0755
 
-  - name:
+  - name: Creating Roboshop Applicaton User (roboshop)
+    ansible.builtin.user:
+      name: roboshop
+      state: present
+      create_home: yes
+      shell: /bin/bash
 
-  - name:
+  - name: Installing Nginx Package
+    ansible.builtin.package:
+      name: nginx
+      state: present
 
-  - name:
+  - name: Enabling Nginx Service
+    ansible.builtin.service:
+      name: nginx
+      enabled: yes
+  
+  - name: Staring Nginx Service
+    ansible.builtin.service:
+      name: nginx
+      state: started
 
-  - name:
+  # - name:
 
-  - name:
+  # - name:
 
-  - name:
+  # - name:
 
-  - name:
+  # - name:
 
-  - name:
+  # - name:
 
-  - name:
+  # - name:
 
-  - name:
+  # - name:
