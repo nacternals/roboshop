@@ -2,7 +2,7 @@
 - name: Roboshop MongoDB Microservice Setup
   hosts: mongodb
   become: true
-  gather-facts: true
+  gather_facts: true
 
   tasks:
     - name: Creating Roboshop App Direcotry
