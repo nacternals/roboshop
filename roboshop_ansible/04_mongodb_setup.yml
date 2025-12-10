@@ -11,55 +11,55 @@
         state: directory
         mode: 0755
 
-    - name: Creating Roboshop Log Direcotry
-      ansible.bulitin.file:
-        path: /app/log
-        state: directory
-        mode: 0755
+    # - name: Creating Roboshop Log Direcotry
+    #   ansible.bulitin.file:
+    #     path: /app/log
+    #     state: directory
+    #     mode: 0755
 
-    - name: Creating MongoDB Log File
-      ansible.builtin.file:
-        path: /app/log/mongodb.log
-        state: present
-        mode: 0755
+    # - name: Creating MongoDB Log File
+    #   ansible.builtin.file:
+    #     path: /app/log/mongodb.log
+    #     state: present
+    #     mode: 0755
 
-    - name: Creating Roboshop User
-      ansible.builtin.user:
-        name: roboshop
-        state: present
-        create_home: yes
-        shell: /bin/bash
+    # - name: Creating Roboshop User
+    #   ansible.builtin.user:
+    #     name: roboshop
+    #     state: present
+    #     create_home: yes
+    #     shell: /bin/bash
 
-    - name: Copy MongoDB Repo File
-      ansible.builtin.copy:
-        src: mongodb.repo
-        dest: /etc/yum.repos.d/mongodb.repo
-        owner: roboshop
-        group: roboshop
-        mode: 0755
+    # - name: Copy MongoDB Repo File
+    #   ansible.builtin.copy:
+    #     src: mongodb.repo
+    #     dest: /etc/yum.repos.d/mongodb.repo
+    #     owner: roboshop
+    #     group: roboshop
+    #     mode: 0755
 
-    - name: Installing MongoDB
-      ansible.builtin.package:
-        name: mongodb
-        state: present
+    # - name: Installing MongoDB
+    #   ansible.builtin.package:
+    #     name: mongodb
+    #     state: present
 
-    - name: Enabling MongoDB
-      ansible.builtin.service:
-        name: mongod
-        enabled: yes
+    # - name: Enabling MongoDB
+    #   ansible.builtin.service:
+    #     name: mongod
+    #     enabled: yes
 
-    - name: Staring MongoDB
-      ansible.builtin.service:
-        name: mongod
-        state: started
+    # - name: Staring MongoDB
+    #   ansible.builtin.service:
+    #     name: mongod
+    #     state: started
 
-    - name: Modifying BindIP to 0.0.0.0
-      ansible.builtin.replace:
-        path: /etc/mongod.conf
-        regexp: "127.0.0.1"
-        replace: "0.0.0.0"
+    # - name: Modifying BindIP to 0.0.0.0
+    #   ansible.builtin.replace:
+    #     path: /etc/mongod.conf
+    #     regexp: "127.0.0.1"
+    #     replace: "0.0.0.0"
 
-    - name: Restaring mongod service
-      ansible.builtin.service:
-        name: mongod
-        state: restarted
+    # - name: Restaring mongod service
+    #   ansible.builtin.service:
+    #     name: mongod
+    #     state: restarted
