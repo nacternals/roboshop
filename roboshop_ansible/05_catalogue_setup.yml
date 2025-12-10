@@ -49,7 +49,7 @@
     - name: Unzipping/Extracting Catalogue Application Code
       ansible.builtin.unarchive:
         src: /tmp/catalogue.zip
-        dest: /app/catalogue
+        dest: /app
         remote_src: yes
 
     # - name: Install dependencies (npm install)
