@@ -1,0 +1,32 @@
+---
+- name: Roboshop Web Microservice Setup
+  hosts: web
+  become: true
+  gather_fats: true
+
+  tasks:
+  - name:
+
+  - name:
+
+  - name:
+
+  - name:
+
+  - name:
+
+  - name:
+
+  - name:
+
+  - name:
+
+  - name:
+
+  - name:
+
+  - name:
+
+  - name:
+
+  - name:
