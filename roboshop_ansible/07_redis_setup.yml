@@ -25,7 +25,7 @@
         name: roboshop
         state: present
 
-    - name: Enable Redis 6 module from AppStream
+    - name: Enabling Redis 6 module from AppStream
       ansible.builtin.command: dnf module enable redis:6 -y
       args:
         creates: /etc/dnf/modules.d/redis.module
