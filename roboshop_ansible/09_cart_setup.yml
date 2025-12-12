@@ -1,0 +1,8 @@
+---
+- name: Cart Roboshop Microservice Setup
+  host: cart
+  become: true
+  gather_facts: true
+
+  tasks:
+  
