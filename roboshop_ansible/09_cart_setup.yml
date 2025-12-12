@@ -1,25 +1,75 @@
 ---
-- name: Cart Roboshop Microservice Setup
-  host: cart
+- name: Roboshop Cart Microservice Setup
+  hosts: cart
   become: true
   gather_facts: true
 
   tasks:
-  #Basic Roboshop Application Setup
+    #Basic Application Setup
+    - name: Creating Roboshop App Directory
+      ansible.builtin.file:
+        path: /app
+        state: directory
 
-  - name: Creating Roboshop Application Directory
-    ansible.builtin.file:
-      path: /app
-      state: directory
+    - name: Creating Roboshop Log Directory
+      ansible.builtin.file:
+        path: /app/log
+        state: directory
 
-  - name: Creating Roboshop Log Directory
-    ansible.builtin.file:
-      path: /app/log
-      state: directory
+    - name: Creating Roboshop Log File
+      ansible.builtin.file:
+        name: /app/logs/cart_date_time.log
+        state: touch
 
-  - name: Creating Roboshop Log File
-    ansible.builtin.file:
-      path: /app/log/cart_date_time.log
-      state: touch
-  
-  
+    - name: Creating Roboshop Application User (roboshop)
+      ansible.builtin.user:
+        name: roboshop
+        state: present
+        create_home: true
+        ssh: /bin/bash
+
+    #Installing NodeJS 18
+    - name: Disabling NodeJS Default Module 10
+      ansible.builtin.command: "dnf module disable nodejs -y "
+
+    - name: Enabling NodeJS 18 Module
+      ansible.builtin.command: "dnf module enable nodejs:18 -y "
+
+    - name: Installing NodeJS
+      ansible.builtin.package:
+        name: nodejs
+        state: present
+
+    #Settingup Cart Microservice
+    - name: Downloaing Cart Microservice Application Code
+      ansible.builtin.get_url:
+        url: https://roboshop-builds.s3.amazonaws.com/cart.zip
+        dest: /tmp/cart.zip
+
+    - name: Unziping cart Microservice Application Code
+      ansible.builtin.unarchive:
+        src: /tmp/cart.zip
+        dest: /app
+        remote_src: true
+
+    - name: Installing Application Dependencies
+      ansible.builtin.command: npm install
+      args:
+        chdir: /app
+
+    #Settingup Cart Service
+    - name: Copying cart.service File to /etc/systemd/system/cart.service
+      ansible.builtin.copy:
+        src: cart.service
+        dest: /etc/systemd/system/cart.service
+
+    - name: Restarting SystemD Daemon Service
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+
+    - name: Enable and Start Cart Service
+      ansible.builtin.service:
+        name: cart
+        state: started
+        enabled: true
+
