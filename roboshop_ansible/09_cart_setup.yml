@@ -5,4 +5,21 @@
   gather_facts: true
 
   tasks:
+  #Basic Roboshop Application Setup
+
+  - name: Creating Roboshop Application Directory
+    ansible.builtin.file:
+      path: /app
+      state: directory
+
+  - name: Creating Roboshop Log Directory
+    ansible.builtin.file:
+      path: /app/log
+      state: directory
+
+  - name: Creating Roboshop Log File
+    ansible.builtin.file:
+      path: /app/log/cart_date_time.log
+      state: touch
+  
   
