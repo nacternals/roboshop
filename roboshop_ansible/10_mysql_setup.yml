@@ -1,0 +1,45 @@
+---
+- name: MySQL Roboshop Microservice Setup
+  host: mysql
+  become: true
+  gather_facts: true
+
+  tasks:
+    #Basic Application Setup
+    - name: Creating Roboshop App Directory
+      ansible.builtin.file:
+        path: /app
+        state: directory
+
+    - name: Creating Roboshop Log Directory
+      ansible.builtin.file:
+        path: /app/log
+        state: directory
+
+    - name: Creating MySQL Log File
+      ansible.builtin.file:
+        path: /app/log/mysql_date_time.log
+        state: touch
+
+    # Install MySQL
+    - name: Disabling MySQL Default Version 8
+      ansible.builtin.command: "dnf module disable mysql -y"
+
+    - name: Copying mysql.repo to /etc/yum.repos.d/mysql.repo
+      ansible.builtin.copy:
+        src: mysql.repo
+        path: /etc/yum.repos.d/mysql.repo
+
+    - name: Installing MySQL 5.7 Version
+      ansible.builtin.package:
+        name: mysql-community-server
+        state: present
+
+    - name: Enabling and Starting MySQL Service
+      ansible.builtin.service:
+        name: mysql
+        state: started
+        enabled: true
+
+    - name: Chaning MySQL Default User (root) Password
+      ansible.builtin.command: "mysql_secure_installation --set-root-pass Roboshop@1"
