@@ -18,7 +18,7 @@
     - name: Creating Log File
       ansible.builtin.file:
         name: redis_date_time.log
-        state: present
+        state: touch
 
     - name: Creating Roboshop Application User (roboshop)
       ansible.builtin.user:
