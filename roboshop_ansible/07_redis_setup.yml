@@ -25,17 +25,22 @@
         name: roboshop
         state: present
 
-    - name: Installing Remi Repository
-      ansible.builtin.command: "dnf install https://rpms.remirepo.net/enterprise/remi-release-8.rpm -y"
+    # - name: Installing Remi Repository
+    #   ansible.builtin.command: "dnf install https://rpms.remirepo.net/enterprise/remi-release-8.rpm -y"
 
-    - name: Enabling Redis 6.2 from Remi Repository
-      ansible.builtin.command: "dnf module enable redis:remi-6.2 -y"
+    # - name: Enabling Redis 6.2 from Remi Repository
+    #   ansible.builtin.command: "dnf module enable redis:remi-6.2 -y"
 
-    - name: Installing Redis 6.2
-      ansible.builtin.package:
+    - name: Enable Redis 6 module from AppStream
+      ansible.builtin.command: dnf module enable redis:6 -y
+      args:
+        creates: /etc/dnf/modules.d/redis.module
+
+    - name: Install Redis from AppStream
+      ansible.builtin.dnf:
         name: redis
         state: present
-   
+
     - name: Modifing Redis BindIP to 0.0.0.0
       ansible.builtin.replace:
         path: /etc/redis.conf
@@ -47,5 +52,3 @@
         name: redis
         state: started
         enabled: yes
-
-  
