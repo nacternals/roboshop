@@ -30,7 +30,7 @@
       args:
         creates: /etc/dnf/modules.d/redis.module
 
-    - name: Install Redis from AppStream
+    - name: Installing Redis from AppStream
       ansible.builtin.dnf:
         name: redis
         state: present
