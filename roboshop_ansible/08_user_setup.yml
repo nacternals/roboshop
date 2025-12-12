@@ -1,0 +1,93 @@
+---
+- name: Roboshop User Microservice Setup
+  hosts: user
+  become: true
+  gather_facts: true
+
+  tasks:
+    #Basic Application Setup
+    - name: Creating Roboshop App Directory
+      ansible.builtin.file:
+        path: /app
+        state: directory
+
+    - name: Creating Roboshop Log Directory
+      ansible.builtin.file:
+        path: /app/log
+        state: directory
+
+    - name: Creating Roboshop Log File
+      ansible.builtin.file:
+        name: user_date_time.log
+        state: touch
+
+    - name: Creating Roboshop Application User (roboshop)
+      ansible.builtin.user:
+        name: roboshop
+        state: present
+        create_home: true
+        ssh: /bin/bash
+
+    #Installing NodeJS 18
+    - name: Disabling NodeJS Default Module 10
+      ansible.builtin.command: "dnf module disable nodejs -y "
+
+    - name: Enabling NodeJS 18 Module
+      ansible.builtin.command: "dnf module enable nodejs:18 -y "
+    
+    - name: Installing NodeJS
+      ansible.builtin.package:
+        name: nodejs
+        state: present
+    
+    #Settingup User Microservice
+    - name: Downloaing User Microservice Application Code
+      ansible.builtin.get_url:
+        url: https://roboshop-builds.s3.amazonaws.com/user.zip
+        dest: /tmp/user.zip
+    
+    - name: Unziping User Microservice Application Code
+      ansible.builtin.unarchive:
+        src: /tmp/user.zip
+        dest: /app
+        remote_src: true
+    
+    - name: Installing Application Dependencies
+      ansible.builtin.command: npm install
+      args:
+        chdir: /app
+    
+    #Settingup User Service
+    - name: Copying user.service File to /etc/systemd/system/user.service
+      ansible.builtin.copy:
+        src: user.service
+        dest: /etc/systemd/system/user.service
+    
+    - name: Restarting SystemD Daemon Service
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+    
+    - name: Enable and Start User Service
+      ansible.builtin.service:
+        name: user
+        state: started
+        enabled: true
+    
+   #Loading User Schema into MongoDB
+
+    - name: Copying mongodb.repo to /etc/yum.repos.d/mongodb.repo
+      ansible.builtin.copy:
+        src: mongodb.repo
+        dest: /etc/yum.repos.d/mongodb.repo
+    
+    - name: Installing MongoDB Client
+      ansible.builtin.package:
+        name: mongodb-org-shell
+        state: present
+    
+    - name: Pushing User Schema into MongoDB
+      ansible.builtin.command: "mongo --host mongodb.optimusprime.sbs /app/schema/user.js"
+    
+    
+
+
