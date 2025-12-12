@@ -1,0 +1,51 @@
+---
+- name: Roboshop Redis Microservice Setup
+  hosts: redis
+  become: yes
+  gather_facts: true
+
+  tasks:
+    - name: Creating Roboshop App Directory
+      ansible.builtin.file:
+        path: /app
+        state: directory
+
+    - name: Creating Log Directory
+      ansible.builtin.file:
+        path: /app/log
+        state: directory
+
+    - name: Creating Log File
+      ansible.builtin.file:
+        name: redis_date_time.log
+        state: present
+
+    - name: Creating Roboshop Application User (roboshop)
+      ansible.builtin.user:
+        name: roboshop
+        state: present
+
+    - name: Installing Remi Repository
+      ansible.builtin.command: "dnf install https://rpms.remirepo.net/enterprise/remi-release-8.rpm -y"
+
+    - name: Enabling Redis 6.2 from Remi Repository
+      ansible.builtin.command: "dnf module enable redis:remi-6.2 -y"
+
+    - name: Installing Redis 6.2
+      ansible.builtin.package:
+        name: redis
+        state: present
+   
+    - name: Modifing Redis BindIP to 0.0.0.0
+      ansible.builtin.replace:
+        path: /etc/redis.conf
+        regixp: "127.0.0.1"
+        replace: "0.0.0.0"
+
+    - name: Staring and Enabling Redis Service
+      ansible.builtin.service:
+        name: redis
+        state: started
+        enabled: yes
+
+  
