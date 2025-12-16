@@ -1,0 +1,27 @@
+---
+- name: Roboshop RabbitMQ Microservice Setup
+  hosts: rabbitmq
+  become: true
+  gather_facts: true
+
+  tasks:
+    #Basic Roboshop App Setup
+    - name: Creating Roboshop App Directory
+      ansible.builtin.file:
+        path: /app
+        state: directory
+
+    - name: Creating App Log Directory
+      ansible.builtin.file:
+        path: /app/log
+        state: directory
+
+    - name: Creating RabbitMQ Log File
+      ansible.builtin.file:
+        name: /app/log/rabbitmq.log
+        state: touch
+
+    - name: Creating Roboshop App User
+      ansible.builtin.user:
+        name: roboshop
+        state: present
