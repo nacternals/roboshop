@@ -25,3 +25,30 @@
       ansible.builtin.user:
         name: roboshop
         state: present
+
+    # Install RabbitMQ
+
+    - name: Add/Enable Erlang repository (required dependency for RabbitMQ)
+      ansible.builtin.command: "curl -s https://packagecloud.io/install/repositories/rabbitmq/erlang/script.rpm.sh | bash"
+
+    - name: Add/Enable RabbitMQ Server repository
+      ansible.builtin.command: "curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh | bash"
+
+    - name: Installing RabbitMQ Database
+      ansible.builtin.package:
+        name: rabbitmq-server
+        state: present
+
+    - name: Enabling and Staring RabbitMQ Service
+      ansible.builtin.service:
+        name: rabbitmq-server
+        state: started
+        enabled: true
+    
+    - name: Creating RabbitMQ User
+      ansible.builtin.command: "rabbitmqctl add_user roboshop roboshop123"
+
+    - name: Setting-up Permissions to RabbitMQ User
+      ansible.builtin.command: "rabbitmqctl set_permissions -p / roboshop '.*' '.*' '.*'"
+
+    
