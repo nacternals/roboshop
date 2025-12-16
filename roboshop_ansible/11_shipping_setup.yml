@@ -5,63 +5,76 @@
   gather_facts: true
 
   tasks:
-  #Basic Application Setup
-  - name: Creating Roboshop App Directory
-    ansible.builtin.file:
-      path: /app
-      state: directory
-  
-  - name: Creating Roboshop Log Directory
-    ansible.builtin.file:
-      path: /app/log
-      state: directory
-  
-  - name: Creating Shipping Log File
-    ansible.builtin.file:
-      path: /app/log/shipping_date_time.log
-      state: touch
-  
+    #Basic Application Setup
+    - name: Creating Roboshop App Directory
+      ansible.builtin.file:
+        path: /app
+        state: directory
 
-  - name: Creating Roboshop Default User (roboshop)
-    ansible.builtin.user:
-      name: roboshop
-      state: present
-      create_home: true
-      ssh: /bin/bash
-  
-  #Install Java and Maven
-  - name: Installing Java
-    ansible.builtin.package:
-      name: java-11-openjdk
-      state: present
+    - name: Creating Roboshop Log Directory
+      ansible.builtin.file:
+        path: /app/log
+        state: directory
 
-  - name: Installing Maven
-    ansible.builtin.package:
-      name: maven
-      state: present
-  
-  - name: Downloading Application Dependencies and Building Application Jar
-    ansible.builtin.command: "mvn clean package"
-    args:
-      chdir: /app
+    - name: Creating Shipping Log File
+      ansible.builtin.file:
+        path: /app/log/shipping_date_time.log
+        state: touch
 
-  - name: Renaming to Shipping.jar
-    ansible.builtin.command: "mv target/shipping-1.0.jar shipping.jar"
-    args:
-      chdir: /app
+    - name: Creating Roboshop Default User (roboshop)
+      ansible.builtin.user:
+        name: roboshop
+        state: present
+        create_home: true
+        ssh: /bin/bash
 
-  - name: Copying shipping.service File to /etc/systemd/system/shipping.service
-    ansible.builtin.copy:
-      src: shipping.service
-      dest: /etc/systemd/system/shipping.service
-  
-  - name: Reload SystemD Daemon
-    ansible.builtin.systemd_service:
-      daemon_reload: true
+    #Install Java and Maven
+    - name: Installing Java
+      ansible.builtin.package:
+        name: java-11-openjdk
+        state: present
 
-  - name: Enable and Start Shipping Service
-    ansible.builtin.service:
-      name: shipping
-      state: started
-      enabled: yes 
-    
+    - name: Installing Maven
+      ansible.builtin.package:
+        name: maven
+        state: present
+
+    - name: Downloading Application Dependencies and Building Application Jar
+      ansible.builtin.command: "mvn clean package"
+      args:
+        chdir: /app
+
+    - name: Renaming to Shipping.jar
+      ansible.builtin.command: "mv target/shipping-1.0.jar shipping.jar"
+      args:
+        chdir: /app
+
+    - name: Copying shipping.service File to /etc/systemd/system/shipping.service
+      ansible.builtin.copy:
+        src: shipping.service
+        dest: /etc/systemd/system/shipping.service
+
+    - name: Reload SystemD Daemon
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+
+    - name: Enable and Start Shipping Service
+      ansible.builtin.service:
+        name: shipping
+        state: started
+        enabled: yes
+
+    - name: Installing MySQL Client
+      ansible.builtin.package:
+        name: mysql
+        state: present
+
+    - name: Load Shipping Schema into MySQL Database
+      ansible.builtin.command: "mysql -h mysql.optimusprime.sbs -uroot -pRoboShop@1 < /app/schema/shipping.sql "
+      args:
+        chdir: /app
+
+    - name: Restarting Shipping Service
+      ansible.builtin.service:
+        name: shipping
+        state: restarted
