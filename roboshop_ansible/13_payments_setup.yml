@@ -5,28 +5,57 @@
   gather_facts: true
 
   tasks:
-  # Basic App Setup
-  - name: Creating Roboshop App Directory
-    ansible.builtin.file:
-      path: /app
-      state: directory
-  
-  - name: Creating Roboshop Log Directory
-    ansible.builtin.file:
-      path: /app/log
-      state: directory
-  
-  - name: Creating Payments Log File
-    ansible.builtin.file:
-      path: /app/log/payment_date_time.log
-      state: touch
-  
-  - name: Creating Roboshop App User (roboshop)
-    ansible.builtin.user:
-      name: roboshop
-      state: present
-  
-  - name: Installing Python 3.6 and dependicies
-    ansible.builtin.command: "dnf install python36 gcc python3-devel -y"
-  
-  
+    # Basic App Setup
+    - name: Creating Roboshop App Directory
+      ansible.builtin.file:
+        path: /app
+        state: directory
+
+    - name: Creating Roboshop Log Directory
+      ansible.builtin.file:
+        path: /app/log
+        state: directory
+
+    - name: Creating Payments Log File
+      ansible.builtin.file:
+        path: /app/log/payment_date_time.log
+        state: touch
+
+    - name: Creating Roboshop App User (roboshop)
+      ansible.builtin.user:
+        name: roboshop
+        state: present
+
+    - name: Installing Python 3.6 and dependicies
+      ansible.builtin.command: "dnf install python36 gcc python3-devel -y"
+
+    - name: Downloading Payments Microservice Code
+      ansible.builtin.get_url:
+        url: https://roboshop-builds.s3.amazonaws.com/payment.zip
+        dest: /tmp/payment.zip
+
+    - name: Unzipping Payments Microservice Code
+      ansible.builtin.unarchive:
+        src: /tmp/payment.zip
+        dest: /app
+        remote_src: true
+
+    - name: Installing Payments Microservice Dependencies
+      ansible.builtin.command: "pip3.6 install -r requirements.txt"
+      args:
+        chdir: /app
+
+    - name: Copying payments.service file to /etc/systemd/system/payments.service
+      ansible.builtin.copy:
+        src: payments.service
+        dest: /etc/systemd/system/payments.service
+
+    - name: Reloading SystemD Daemon
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+
+    - name: Enabling and Staring payments.service
+      ansible.builtin.service:
+        name: payments
+        state: started
+        enabled: true
