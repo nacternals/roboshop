@@ -18,7 +18,7 @@
 
     - name: Creating Roboshop Log File
       ansible.builtin.file:
-        path: /app/logs/cart_date_time.log
+        path: /app/log/cart_date_time.log
         state: touch
 
     - name: Creating Roboshop Application User (roboshop)
