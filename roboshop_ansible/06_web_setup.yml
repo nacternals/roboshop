@@ -75,6 +75,7 @@
       ansible.builtin.copy:
         src: roboshop.conf
         dest: /etc/nginx/default.d/roboshop.conf
+        force: true
 
     - name: Restarting Nginx Service
       ansible.builtin.service:
