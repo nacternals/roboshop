@@ -81,19 +81,13 @@
         state: present
 
     - name: Load Shipping Schema into MySQL Database
-      ansible.builtin.command: "mysql -h mysql.optimusprime.sbs -uroot -pRoboShop@1 schema.sql"
-      args:
-        chdir: /app/db
+      ansible.builtin.shell: "mysql -h mysql.optimusprime.sbs -uroot -pRoboShop@1 < /app/db/schema.sql"
 
     - name: Load User Schema into MySQL Database
-      ansible.builtin.command: "mysql -h mysql.optimusprime.sbs -uroot -pRoboShop@1 app-user.sql"
-      args:
-        chdir: /app/db
+      ansible.builtin.shell: "mysql -h mysql.optimusprime.sbs -uroot -pRoboShop@1 < /app/db/app-user.sql"
 
     - name: Load Master Data Schema into MySQL Database
-      ansible.builtin.command: "mysql -h mysql.optimusprime.sbs -uroot -pRoboShop@1 master-data.sql"
-      args:
-        chdir: /app/db
+      ansible.builtin.command: "mysql -h mysql.optimusprime.sbs -uroot -pRoboShop@1 < /app/db/master-data.sql"
 
     - name: Restarting Shipping Service
       ansible.builtin.service:
