@@ -25,7 +25,7 @@
         name: roboshop
         state: present
         create_home: true
-        ssh: /bin/bash
+        shell: /bin/bash
 
     #Setting-up Dispatch Microservice
     - name: Installing GoLang
