@@ -25,6 +25,8 @@
       ansible.builtin.user:
         name: roboshop
         state: present
+        create_home: true
+        shell: /bin/bash
 
     - name: Installing Python 3.6 and dependicies
       ansible.builtin.command: "dnf install python36 gcc python3-devel -y"
