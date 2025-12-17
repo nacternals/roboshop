@@ -44,8 +44,22 @@
         dest: /app
         remote_src: true
 
-    - name: Installing Dispatch Microservice Denpendencies
-      ansible.builtin.shell: "go mod init dispatch && go get && got build"
+    - name: Initialing Go module (only if go.mod missing)
+      ansible.builtin.command: go mod init dispatch
+      args:
+        chdir: /app
+        creates: /app/go.mod
+
+    - name: Resolve dependencies
+      ansible.builtin.command: go mod tidy
+      args:
+        chdir: /app
+
+    - name: Build dispatch binary
+      ansible.builtin.command: go build -o dispatch
+      args:
+        chdir: /app
+
 
     - name: Copying dispatch.service to /etc/systemd/system/dispatch.service
       ansible.builtin.file:
