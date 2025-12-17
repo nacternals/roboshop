@@ -87,7 +87,7 @@
       ansible.builtin.shell: "mysql -h mysql.optimusprime.sbs -uroot -pRoboshop@1 < /app/db/app-user.sql"
 
     - name: Load Master Data Schema into MySQL Database
-      ansible.builtin.command: "mysql -h mysql.optimusprime.sbs -uroot -pRoboshop@1 < /app/db/master-data.sql"
+      ansible.builtin.shell: "mysql -h mysql.optimusprime.sbs -uroot -pRoboshop@1 < /app/db/master-data.sql"
 
     - name: Restarting Shipping Service
       ansible.builtin.service:
