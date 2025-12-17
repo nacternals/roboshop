@@ -44,7 +44,7 @@
 
     - name: Enabling and Starting MySQL Service
       ansible.builtin.service:
-        name: mysql
+        name: mysqld
         state: started
         enabled: true
 
