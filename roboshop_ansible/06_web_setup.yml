@@ -35,12 +35,6 @@
         name: nginx
         state: present
 
-    - name: Enabling and Starting Nginx Service
-      ansible.builtin.service:
-        name: nginx
-        state: started
-        enabled: yes
-
     - name: Deleting Nginx Default HTML Landing Directory
       ansible.builtin.file:
         path: /usr/share/nginx/html
@@ -68,7 +62,8 @@
         dest: /etc/nginx/default.d/roboshop.conf
         force: true
 
-    - name: Restarting Nginx Service
+    - name: Enabling and Starting Nginx Service
       ansible.builtin.service:
         name: nginx
-        state: restarted
+        state: started
+        enabled: true
