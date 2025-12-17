@@ -39,6 +39,17 @@
         name: maven
         state: present
 
+    - name: Downloading Roboshop Shipping Microservice Code
+      ansible.builtin.get_url:
+        url: https://roboshop-builds.s3.amazonaws.com/shipping.zip
+        dest: /tmp/shipping.zip
+    
+    - name: Unzipping Roboshop Shipping Microservice Code
+      ansible.builtin.unarchive:
+        src: /tmp/shipping.zip
+        dest: /app
+        remote_src: true
+
     - name: Downloading Application Dependencies and Building Application Jar
       ansible.builtin.command: "mvn clean package"
       args:
