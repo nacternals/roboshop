@@ -35,7 +35,7 @@
     - name: Copying mysql.repo to /etc/yum.repos.d/mysql.repo
       ansible.builtin.copy:
         src: mysql.repo
-        path: /etc/yum.repos.d/mysql.repo
+        dest: /etc/yum.repos.d/mysql.repo
 
     - name: Installing MySQL 5.7 Version
       ansible.builtin.package:
