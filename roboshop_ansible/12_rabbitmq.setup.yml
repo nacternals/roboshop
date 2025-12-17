@@ -25,6 +25,8 @@
       ansible.builtin.user:
         name: roboshop
         state: present
+        create_home: true
+        shell: /bin/bash
 
     # Install RabbitMQ
 
@@ -44,11 +46,9 @@
         name: rabbitmq-server
         state: started
         enabled: true
-    
+
     - name: Creating RabbitMQ User
       ansible.builtin.command: "rabbitmqctl add_user roboshop roboshop123"
 
     - name: Setting-up Permissions to RabbitMQ User
       ansible.builtin.command: "rabbitmqctl set_permissions -p / roboshop '.*' '.*' '.*'"
-
-    
