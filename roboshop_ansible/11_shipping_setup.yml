@@ -81,7 +81,7 @@
         state: present
 
     - name: Load Shipping Schema into MySQL Database
-      ansible.builtin.command: "mysql -h mysql.optimusprime.sbs -uroot -pRoboShop@1 < /app/schema/shipping.sql "
+      ansible.builtin.command: "mysql -h mysql.optimusprime.sbs -uroot -pRoboShop@1  /app/schema/shipping.sql "
       args:
         chdir: /app
 
