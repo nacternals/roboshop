@@ -35,15 +35,11 @@
         name: nginx
         state: present
 
-    - name: Enabling Nginx Service
-      ansible.builtin.service:
-        name: nginx
-        enabled: yes
-
-    - name: Staring Nginx Service
+    - name: Enabling and Starting Nginx Service
       ansible.builtin.service:
         name: nginx
         state: started
+        enabled: yes
 
     - name: Deleting Nginx Default HTML Landing Directory
       ansible.builtin.file:
@@ -66,11 +62,6 @@
         dest: /usr/share/nginx/html
         remote_src: yes
 
-    - name: Restarting Nginx Service
-      ansible.builtin.service:
-        name: nginx
-        state: restarted
-
     - name: Copying Nginx Reverse Proxy Config File
       ansible.builtin.copy:
         src: roboshop.conf
@@ -80,4 +71,4 @@
     - name: Restarting Nginx Service
       ansible.builtin.service:
         name: nginx
-        state: reloaded
+        state: restarted
