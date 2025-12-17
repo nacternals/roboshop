@@ -21,7 +21,7 @@ HOSTED_ZONE_ID="Z06046792KQ5HDP2YEDR4" # TODO: Route53 hosted zone ID for optimu
 DOMAIN_NAME="optimusprime.sbs"
 
 # Microservices list
-SERVICES=(mongodb redis mysql rabbitmq shipping user cart catalogue payments dispatch web)
+SERVICES=(mongodb redis mysql rabbitmq shipping user cart catalogue payment dispatch web)
 
 # Instance type mapping
 declare -A INSTANCE_TYPES
@@ -34,7 +34,7 @@ INSTANCE_TYPES=(
 	[user]="t2.micro"
 	[cart]="t2.micro"
 	[catalogue]="t2.micro"
-	[payments]="t2.micro"
+	[payment]="t2.micro"
 	[dispatch]="t2.micro"
 	[web]="t2.micro"
 )

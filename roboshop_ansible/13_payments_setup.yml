@@ -49,15 +49,15 @@
 
     - name: Copying payments.service file to /etc/systemd/system/payments.service
       ansible.builtin.copy:
-        src: payments.service
-        dest: /etc/systemd/system/payments.service
+        src: payment.service
+        dest: /etc/systemd/system/payment.service
 
     - name: Reloading SystemD Daemon
       ansible.builtin.systemd_service:
         daemon_reload: true
 
-    - name: Enabling and Staring payments.service
+    - name: Enabling and Staring payment.service
       ansible.builtin.service:
-        name: payments
+        name: payment
         state: started
         enabled: true
