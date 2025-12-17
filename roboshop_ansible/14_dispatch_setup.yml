@@ -1,2 +1,64 @@
 ---
-- name: Roboshop Dispatch Setup
+- name: Roboshop Dispatch Microservice Setup
+  hosts: dispatch
+  become: true
+  gather_facts:
+
+  tasks:
+    - name: Creating Roboshop App Directory
+      ansible.builtin.file:
+        path: /app
+        state: directory
+
+    - name: Creating Roboshop Log Directory
+      ansible.builtin.file:
+        path: /app/log
+        state: directory
+
+    - name: Creating Dispatch Microservice Log File
+      ansible.builtin.file:
+        path: /app/log/dispatch_date_time.log
+        state: touch
+
+    - name: Creating Roboshop Application User (roboshop)
+      ansible.builtin.user:
+        name: roboshop
+        state: present
+        create_home: true
+        ssh: /bin/bash
+
+    #Setting-up Dispatch Microservice
+    - name: Installing GoLang
+      ansible.builtin.package:
+        name: golang
+        state: present
+
+    - name: Downloading Dispatch Microservice Code
+      ansible.builtin.get_url:
+        url: https://roboshop-builds.s3.amazonaws.com/dispatch.zip
+        dest: /tmp/dispatch.zip
+
+    - name: Unzipping Dispatch Microservice Code
+      ansible.builtin.unarchive:
+        src: /tmp/dispatch.zip
+        dest: /app
+        remote_src: true
+
+    - name: Installing Dispatch Microservice Denpendencies
+      ansible.builtin.shell: "go mod init dispatch && go get && got build"
+
+    - name: Copying dispatch.service to /etc/systemd/system/dispatch.service
+      ansible.builtin.file:
+        path: dispatch.service
+        dest: /etc/systemd/system/dispatch.service
+    
+    - name: Reloading SystemD Daemon
+      ansible.builtin.systemd_service:
+        daemon_reload: true
+    - name: Enabling and Staring dispatch.service
+      ansible.builtin.service:
+        name: dispatch.service
+        state: started
+        enabled: true
+  
+  
