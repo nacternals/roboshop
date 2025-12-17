@@ -43,7 +43,7 @@
       ansible.builtin.get_url:
         url: https://roboshop-builds.s3.amazonaws.com/shipping.zip
         dest: /tmp/shipping.zip
-    
+
     - name: Unzipping Roboshop Shipping Microservice Code
       ansible.builtin.unarchive:
         src: /tmp/shipping.zip
@@ -81,7 +81,7 @@
         state: present
 
     - name: Load Shipping Schema into MySQL Database
-      ansible.builtin.command: "mysql -h mysql.optimusprime.sbs -uroot -pRoboShop@1  /app/schema/shipping.sql "
+      ansible.builtin.command: "mysql -h mysql.optimusprime.sbs -uroot -pRoboShop@1 /app/schema/shipping.sql "
       args:
         chdir: /app
 
