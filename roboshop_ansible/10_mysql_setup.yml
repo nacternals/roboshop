@@ -1,6 +1,6 @@
 ---
 - name: MySQL Roboshop Microservice Setup
-  host: mysql
+  hosts: mysql
   become: true
   gather_facts: true
 
