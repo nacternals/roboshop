@@ -31,10 +31,10 @@
     # Install RabbitMQ
 
     - name: Add/Enable Erlang repository (required dependency for RabbitMQ)
-      ansible.builtin.command: "curl -s https://packagecloud.io/install/repositories/rabbitmq/erlang/script.rpm.sh | bash"
+      ansible.builtin.shell: "curl -s https://packagecloud.io/install/repositories/rabbitmq/erlang/script.rpm.sh | bash"
 
     - name: Add/Enable RabbitMQ Server repository
-      ansible.builtin.command: "curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh | bash"
+      ansible.builtin.shell: "curl -s https://packagecloud.io/install/repositories/rabbitmq/rabbitmq-server/script.rpm.sh | bash"
 
     - name: Installing RabbitMQ Database
       ansible.builtin.package:
