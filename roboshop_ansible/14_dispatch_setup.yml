@@ -63,7 +63,7 @@
 
     - name: Copying dispatch.service to /etc/systemd/system/dispatch.service
       ansible.builtin.file:
-        path: dispatch.service
+        src: dispatch.service
         dest: /etc/systemd/system/dispatch.service
 
     - name: Reloading SystemD Daemon
