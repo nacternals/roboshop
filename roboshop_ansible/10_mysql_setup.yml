@@ -21,6 +21,13 @@
         path: /app/log/mysql_date_time.log
         state: touch
 
+    - name: Creating Roboshop Applicatoin Default Usuer (roboshop)
+      ansible.builtin.user:
+        name: roboshop
+        state: present
+        create_home: true
+        shell: /bin/bash
+
     # Install MySQL
     - name: Disabling MySQL Default Version 8
       ansible.builtin.command: "dnf module disable mysql -y"
