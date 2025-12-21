@@ -1,0 +1,10 @@
+---
+- name: Roboshop Engine
+  hosts: roboshop
+  become: true
+  gather_facts: true
+
+  tasks:
+  - name: Pinging All Roboshop Microservices
+    ansible.builtin.ping:
+    
