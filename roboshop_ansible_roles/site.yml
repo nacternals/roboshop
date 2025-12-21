@@ -8,11 +8,3 @@
   roles:
     - pingservice
 
-  # tasks:
-  #   - name: Pinging All Roboshop Microservices
-  #     ansible.builtin.ping:
-  #     register: ping_result
-
-  #   - name: Printing Ping Status
-  #     ansible.builtin.debug:
-  #       var: ping_result
