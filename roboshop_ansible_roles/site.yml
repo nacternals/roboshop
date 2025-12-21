@@ -11,4 +11,4 @@
 
     - name: Printing Ping Status
       ansible.builtin.debug:
-        msg: "{{inventory_hostname}} => {{ping_result.ping}}"
+        var: ping_result
