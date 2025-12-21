@@ -1,9 +1,9 @@
 ---
 # tasks file for roles/pingservice
-    - name: Pinging All Roboshop Microservices
-      ansible.builtin.ping:
-      register: ping_result
+- name: Pinging All Roboshop Microservices
+  ansible.builtin.ping:
+  register: ping_result
 
-    - name: Printing Ping Status
-      ansible.builtin.debug:
-        var: ping_result
+- name: Printing Ping Status
+  ansible.builtin.debug:
+    var: ping_result
