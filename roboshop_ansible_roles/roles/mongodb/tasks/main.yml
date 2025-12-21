@@ -1,2 +1,27 @@
 ---
 # tasks file for mongodb
+#Setting-up Basic App Requirements
+- name: Creating Roboshop Default App Directory
+  ansible.builtin.file:
+    path: /app
+    state: directory
+
+- name: Creating Roboshop Log Directory
+  ansible.builtin.file:
+    path: /app/log
+    state: directory
+
+- name: Creating MongoDB Log File
+  ansible.builtin.file:
+    path: /app/log/mongodb.log
+    state: touch
+
+- name: Creating Roboshop Default App User (roboshop)
+  ansible.builtin.user:
+    name: roboshop
+    state: present
+    shell: /bin/bash
+    create_home: true
+    password: "{{roboshop_password_hash}}"
+
+
