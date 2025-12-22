@@ -1,2 +1,9 @@
 ---
 # tasks file for catalogue
+#Setting-up Basic Roboshop Application Requirements
+- name: Creating Roboshop Default App Directory
+  ansible.builtin.file:
+    path: /app
+    state: directory
+  
+  
