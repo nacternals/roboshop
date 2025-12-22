@@ -13,7 +13,7 @@
 
 - name: Creating MongoDB Log File
   ansible.builtin.file:
-    path: /app/log/mongodb.log
+    path: /app/log/mongodb_date_time.log
     state: touch
 
 - name: Creating Roboshop Default App User (roboshop)
@@ -23,5 +23,29 @@
     shell: /bin/bash
     create_home: true
     password: "{{roboshop_password_hash}}"
+
+- name: Creating Ansible Default User (ansadmin) with Password
+  ansible.builtin.user:
+    name: ansadmin
+    state: present
+    shell: /bin/bash
+    create_home: true
+    password: "{{ansadmin_password_hash}}"
+    update_password: on_create
+
+- name: Ensuring SUDO is Installed
+  ansible.builtin.package:
+    name: sudo
+    state: present
+
+- name: Allowing ansadmin passwordless sudo
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/ansadmin
+    content: "ansadmin ALL=(ALL) NOPASSWD: ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+
+
 
 
