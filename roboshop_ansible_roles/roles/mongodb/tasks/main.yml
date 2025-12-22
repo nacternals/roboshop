@@ -46,6 +46,33 @@
     group: root
     mode: "0440"
 
+#Installing MongoDB Database
+- name: Creating mongodb.repo file to /etc/yum.repos.d/mongodb.repo
+  ansible.builtin.copy:
+    src: mongodb.repo
+    dest: /etc/yum.repos.d/mongodb.repo
+    owner: root
+    group: root
+    mode: "0644"
 
+- name: Installing MongoDB Database
+  ansible.builtin.package:
+    name: mongodb-org
+    state: present
 
+- name: Enabling and starting MongoDB Database
+  ansible.builtin.service:
+    name: mongod
+    state: started
+    enabled: true
 
+- name: Updating MongoDB bindIP listening address for remote servers
+  ansible.builtin.replace:
+    path: /etc/mongod.conf
+    regexp: '127.0.0.1'
+    replace: "0.0.0.0"
+
+- name: Restarting MongoDB Service
+  ansible.builtin.service:
+    name: mongod
+    state: restarted
