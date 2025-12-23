@@ -6,7 +6,55 @@
     path: /app
     state: directory
 
-2. Creating Roboshop Default Log Directory
-3. Creating Redis Microservice Default Log File
-4. Creating Roboshop Application Service User (roboshop)
-5. Creating Ansible Default User (ansadmin)
+- name: Creating Roboshop Default Log Directory
+  ansible.builtin.file:
+    path: /app/log
+    state: directory
+
+- name: Creating Redis Microservice Default Log File
+  ansible.builtin.file:
+    path: /app/log/redis_date_time.log
+
+- name: Creating Roboshop Application Service User (roboshop)
+  ansible.builtin.user:
+    name: roboshop
+    state: present
+    create_home: true
+    shell: /bin/bash
+    password: "{{roboshop_password_hash}}"
+    update_password: on_create
+
+- name: Creating Ansible Default User (ansadmin)
+  ansinle.builtin.user:
+    name: ansadmin
+    state: present
+    create_home: true
+    shell: /bin/bash
+    password: "{{ansadmin_password_hash}}"
+    update_password: on_create
+
+#Setting-up Redis Database
+- name: Installing Remi Repository
+  ansible.builtin.command: "dnf install https://rpms.remirepo.net/enterprise/remi-release-8.rpm -y"
+
+- name: Enabling Redis 6.2 Module Stream from Remi Repo
+  ansible.builtin.command: "dnf module enable redis:remi-6.2 -y"
+
+- name: Installing Redis Required Version (6.2)
+  ansible.builtin.package:
+    name: redis
+    state: present
+
+- name: Updating Redis bindIP Listening Address for Remote Servers
+  ansible.builtin.replace:
+    path: /etc/redis.conf
+    regexp: '127.0.0.1'
+    replace: "0.0.0.0"
+
+- name: Enabling and Starting Redis Service
+  ansible.builtin.systemd:
+    name: redis
+    state: started
+    enabled: true
+
+    
