@@ -1,2 +1,12 @@
 ---
 # tasks file for redis
+#Setting-up Roboshop Application Basic Requirements
+- name: Creating Roboshop Application Default Directory
+  ansible.builtin.file:
+    path: /app
+    state: directory
+
+2. Creating Roboshop Default Log Directory
+3. Creating Redis Microservice Default Log File
+4. Creating Roboshop Application Service User (roboshop)
+5. Creating Ansible Default User (ansadmin)
