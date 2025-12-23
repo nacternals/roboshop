@@ -57,6 +57,7 @@
     name: nodejs
     state: present
 
+#Setting-up Catalogue Microservice
 - name: Downloading Catalogue Application Code
   ansible.builting.get_url:
     url: "https://roboshop-builds.s3.amazonaws.com/catalogue.zip"
