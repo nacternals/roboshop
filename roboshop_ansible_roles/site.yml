@@ -9,4 +9,7 @@
     - pingservice
     - mongodb
     - catalogue
+    - cart
+    - user
+    
 
