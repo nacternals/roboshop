@@ -16,7 +16,7 @@
     path: /app/log/mongodb_date_time.log
     state: touch
 
-- name: Creating Roboshop Default App User (roboshop)
+- name: Creating Roboshop Default Service User (roboshop)
   ansible.builtin.user:
     name: roboshop
     state: present
