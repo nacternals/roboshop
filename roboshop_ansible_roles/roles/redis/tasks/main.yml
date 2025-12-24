@@ -42,7 +42,9 @@
   ansible.builtin.copy:
     path: /etc/sudoers.d/ansadmin
     content: "ansadmin ALL=(ALL) NOPASSWD=ALL\n"
-
+    owner: root
+    group: root
+    mode: "0440"
 
 #Setting-up Redis Database
 - name: Installing Remi Repository
@@ -59,7 +61,7 @@
 - name: Updating Redis bindIP Listening Address for Remote Servers
   ansible.builtin.replace:
     path: /etc/redis.conf
-    regexp: '127.0.0.1'
+    regexp: "127.0.0.1"
     replace: "0.0.0.0"
 
 - name: Enabling and Starting Redis Service
@@ -67,5 +69,3 @@
     name: redis
     state: started
     enabled: true
-
-    
