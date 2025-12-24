@@ -33,6 +33,17 @@
     password: "{{ansadmin_password_hash}}"
     update_password: on_create
 
+- name: Ensuring SUDO is Installed
+  ansible.builtin.package:
+    name: sudo
+    state: present
+
+- name: Allowing ansadmin passwordless sudo
+  ansible.builtin.copy:
+    path: /etc/sudoers.d/ansadmin
+    content: "ansadmin ALL=(ALL) NOPASSWD=ALL\n"
+
+
 #Setting-up Redis Database
 - name: Installing Remi Repository
   ansible.builtin.command: "dnf install https://rpms.remirepo.net/enterprise/remi-release-8.rpm -y"
