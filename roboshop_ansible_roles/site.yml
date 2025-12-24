@@ -12,5 +12,7 @@
     - cart
     - user
     - redis
+    - mysql
+    - shipping
     
 
