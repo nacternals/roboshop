@@ -59,7 +59,7 @@
 
 #Setting-up Catalogue Microservice
 - name: Downloading Catalogue Application Code
-  ansible.builting.get_url:
+  ansible.builtin.get_url:
     url: "https://roboshop-builds.s3.amazonaws.com/catalogue.zip"
     dest: "/tmp/catalogue.zip"
 

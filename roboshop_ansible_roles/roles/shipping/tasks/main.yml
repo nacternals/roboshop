@@ -1,2 +1,79 @@
 ---
 # tasks file for shipping
+#Setting-up Roboshop Basic App Requirements
+- name: Creating Roboshop Default App Directory
+  ansible.builtin.file:
+    path: /app
+    state: directory
+
+- name: Creating Roboshop Default Log Directory
+  ansible.builtin.file:
+    path: /app/log
+    state: directory
+
+- name: Creating Shipping Microservice Default Log File
+  ansible.builtin.file:
+    path: /app/log/shipping_date_time.log
+    state: touch
+
+- name: Creating Roboshop App Service User (roboshop) with Password
+  ansible.builtin.user:
+    name: roboshop
+    state: present
+    create_home: true
+    shell: /bin/bash
+    password: "{{roboshop_password_hash}}"
+    update_password: on_create
+
+- name: Creating Ansible Default User (ansadmin)
+  ansible.builtin.user:
+    name: ansadmin
+    state: present
+    create_home: true
+    shell: /bin/bash
+    password: "{{ansadmin_password_hash}}"
+    update_password: on_create
+
+- name: Ensuring SUDO is Installed
+  ansible.builtin.package:
+    name: sudo
+    state: present
+
+- name: Allowing ansadmin Passwordless Sudo
+  ansible.builtin.copy:
+    path: /etc/sudoers.d/ansadmin
+    content: "ansadmin ALL=(ALL) NOPASSWD=ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+
+#Setting-up Maven and Java
+- name: Installing Maven and Java
+  ansible.builtin.package:
+    name: maven
+    state: present
+
+
+#Setting-up Shipping Microservice Application Code
+- name: Downloading Shipping Microservice Application Code
+  ansible.builtin.get_url:
+    url: https://roboshop-builds.s3.amazonaws.com/shipping.zip
+    dest: /tmp/shipping.zip
+
+- name: Unzipping Shipping Microservice Application Code to /app
+  ansible.builtin.unarchive:
+    src: /tmp/shipping.zip
+    dest: /app
+    remote_src: true
+
+- name: Downloading Shipping Application Dependencies and Building Application Jar
+  ansible.builting.command: "mvn clean package"
+  args:
+    chdir: /app
+
+- name: Renaming Shipping Application Jar
+  ansible.builtin.command: "mv target/shipping-1.0.jar shipping.jar"
+  args:
+    chdir: /app
+
+
