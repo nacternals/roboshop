@@ -42,3 +42,26 @@
     group: root
     mode: "0440"
 
+- name: Disabling MySQL Default Version (8)
+  ansible.builtin.command: "dnf module disable mysql -y"
+
+- name: Copying MySQL Repo File as /etc/yum.repos.d/mysql.repo
+  ansible.builtin.copy:
+    src: mysql.repo
+    dest: /etc/yum.repos.d/mysql.repo
+
+- name: Installing MySQL (Required Version 5.7)
+  ansible.builtin.package:
+    name: mysql-community-server
+    state: present
+
+- name: Enabling and Starting MySQL Database Service
+  ansible.builtin.service:
+    name: mysqld
+    state: started
+    enabled: true
+
+- name: Changing MySQL Default User (root) Password
+  ansible.builtin.command: "mysql_secure_installation --set-root-pass RoboShop@1"
+
+
