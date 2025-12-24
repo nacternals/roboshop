@@ -1,2 +1,36 @@
 ---
 # tasks file for mysql
+#Setting-up Roboshop Application Basic Requirements
+- name: Creating Roboshop Default App Directory
+  ansible.builtin.file:
+    path: /app
+    state: directory
+
+- name: Creating Roboshop Default Log Directory
+  ansible.builtin.file:
+    path: /app/log
+    state: directory
+
+- name: Creating MySQL Default Log File
+  ansible.builtin.file:
+    path: /app/log/mysql_date_time.log
+    state: touch
+
+- name: Creating Roboshop Service User (roboshop) with Password
+  ansible.builtin.user:
+    name: roboshop
+    state: present
+    create_home: true
+    shell: /bin/bash
+    password: "{{roboshop_password_hash}}"
+    update_password: on_create
+
+- name: Creating Ansible Default User (ansadmin) with Password
+  ansible.builtin.user:
+    name: ansadmin
+    state: present
+    create_home: true
+    shell: /bin/bash
+    password: "{{ansadmin_password_hash}}"
+    update_password: on_create
+
