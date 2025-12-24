@@ -76,4 +76,35 @@
   args:
     chdir: /app
 
+#Setting-up Shipping Microservice systemd Service
+- name: Copying Shipping Service File (shipping.service.j2) to /etc/systemd/system/shipping.service
+  ansible.builtin.templates:
+    path: shipping.service.j2
+    dest: /etc/systemd/system/shipping.service
+
+- name: Reloading systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enabling and Staring Shipping Service
+  ansible.builtin.systemd:
+    name: shipping
+    state: started
+    enabled: true
+
+#Loading Shipping Schema into MySQL Database
+- name: Installing MySQL Client
+  ansible.builtin.package:
+    name: "{{'mysql-client' if ansible_os_family == 'Debian' else 'mysql'}}"
+    state: present
+
+- name: Loading Shipping Schema into MySQL Database
+  ansible.builtin.shell: " mysql -h mysql.optimusprime.sbs -uroot -pRoboShop@1 < /app/schema/shipping.sql "
+
+- name: Restarting Shipping Service
+  ansible.builtin.systemd:
+    name: shipping
+    state: restarted
+
+
 
