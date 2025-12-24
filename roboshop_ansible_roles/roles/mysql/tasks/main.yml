@@ -34,3 +34,11 @@
     password: "{{ansadmin_password_hash}}"
     update_password: on_create
 
+- name: Allowing ansadmin passwordless sudo
+  ansible.builtin.copy:
+    path: /etc/sudoers.d/ansadmin
+    content: "ansadmin ALL=(ALL) NOPASSWD=ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+
