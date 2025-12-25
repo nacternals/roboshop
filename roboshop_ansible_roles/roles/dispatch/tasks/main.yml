@@ -47,3 +47,49 @@
     group: root
     mode: "0440"
 
+#Setting-up GoLang
+- name: Installing Go (GoLang)
+  ansible.builtin.package:
+    name: golang
+    state: present
+
+#Setting-up Dispatch Application Code
+- name: Downloading Dispatch Microservice Application Code
+  ansible.builtin.get_url:
+    url: https://roboshop-builds.s3.amazonaws.com/dispatch.zip
+    dest: /tmp/dispatch.zip
+
+- name: Unzipping Dispatch Application Code to /app
+  ansible.builtin.unarchive:
+    src: /tmp/dispatch.zip
+    dest: /app
+    remote_src: true
+
+#Setting-up Dispatch Application Dependencies and Build
+- name: Intializing Dispatch Application Dependencies and Building the Application
+  ansible.builtin.shell: |
+    go mod init dispatch
+    go get
+    go build
+  args:
+    chdir: /app
+
+#Setting-up Dispatch Service
+- name: Copying Dispatch Service File (dispatch.service.j2) to /etc/systemd/system/dispatch.service
+  ansible.builtin.template:
+    src: dispatch.service.j2
+    dest: /etc/systemd/system/dispatch.service
+
+- name: Reloading systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enabling and Starting Dispatch Service
+  ansible.builtin.systemd:
+    name: dispatch
+    state: started
+    enabled: true
+
+
+
+
