@@ -2,21 +2,83 @@
 - name: Roboshop Engine
   hosts: roboshop
   become: true
-  gather_facts: true
-
-
+  gather_facts: false
   roles:
     - pingservice
-    - mongodb
-    - catalogue
-    - cart
-    - user
-    - redis
-    - mysql
-    - shipping
-    - rabbitmq
-    - payment
-    - dispatch
-    - web
-    
 
+- name: MongoDB
+  hosts: mongodb
+  become: true
+  gather_facts: false
+  roles:
+    - mongodb
+
+- name: Redis
+  hosts: redis
+  become: true
+  gather_facts: false
+  roles:
+    - redis
+
+- name: MySQL
+  hosts: mysql
+  become: true
+  gather_facts: false
+  roles:
+    - mysql
+
+- name: RabbitMQ
+  hosts: rabbitmq
+  become: true
+  gather_facts: false
+  roles:
+    - rabbitmq
+
+- name: Catalogue
+  hosts: catalogue
+  become: true
+  gather_facts: false
+  roles:
+    - catalogue
+
+- name: Cart
+  hosts: cart
+  become: true
+  gather_facts: false
+  roles:
+    - cart
+
+- name: User
+  hosts: user
+  become: true
+  gather_facts: false
+  roles:
+    - user
+
+- name: Shipping
+  hosts: shipping
+  become: true
+  gather_facts: false
+  roles:
+    - shipping
+
+- name: Payment
+  hosts: payment
+  become: true
+  gather_facts: false
+  roles:
+    - payment
+
+- name: Dispatch
+  hosts: dispatch
+  become: true
+  gather_facts: false
+  roles:
+    - dispatch
+
+- name: Web
+  hosts: web
+  become: true
+  gather_facts: false
+  roles:
+    - web
