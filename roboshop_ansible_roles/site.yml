@@ -17,5 +17,6 @@
     - rabbitmq
     - payment
     - dispatch
+    - web
     
 
