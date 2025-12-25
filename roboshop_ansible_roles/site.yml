@@ -14,5 +14,7 @@
     - redis
     - mysql
     - shipping
+    - rabbitmq
+    
     
 
