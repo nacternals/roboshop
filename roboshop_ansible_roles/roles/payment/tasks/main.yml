@@ -75,4 +75,19 @@
     chdir: /app
 
 #Setting-up Payment systemd Service
-- name: 
+- name: Copying Payment Service File (payment.service.j2) as /etc/systemd/system/payment.service
+  ansible.builtin.copy:
+    src: payment.service.j2
+    dest: /etc/systemd/system/payment.service
+
+- name: Reloading Payment Service
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Enabling and Starting Payment Service
+  ansible.builtin.systemd:
+    name: payment
+    state: started
+    enabled: true
+
+
