@@ -16,5 +16,6 @@
     - shipping
     - rabbitmq
     - payment
+    - dispatch
     
 
