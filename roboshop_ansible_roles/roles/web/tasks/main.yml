@@ -46,3 +46,43 @@
     owner: root
     group: root
     mode: "0440"
+
+#Setting-up Nginx
+- name: Installing Nginx
+  ansible.builtin.package:
+    name: nginx
+    state: present
+
+- name: Enabling and Starting Nginx Service
+  ansible.builtin.systemd:
+    name: nginx
+    state: started
+    enabled: true
+
+#Setting-up Web Microservice Application Code
+- name: Removing Nginx Default HTML Pages
+  ansible.builtin.command: "rm -rf /usr/share/nginx/html/*"
+
+- name: Downloading Web Microservice Application Code
+  ansible.builtin.get_url:
+    url: https://roboshop-builds.s3.amazonaws.com/web.zip
+    dest: /tmp/web.zip
+
+- name: Unzipping Web Microservice Application Code to /usr/share/nginx/hmtl/
+  ansible.builtin.unarchive:
+    src: /tmp/web.zip
+    dest: /usr/share/nginx/html/
+    remote_src: true
+
+#Setting-up Nginx Reverse Proxy
+- name: Copying roboshop.conf.j2 as /etc/nginx/default.d/roboshop.conf
+  ansible.builtin.template:
+    src: roboshop.conf.j2
+    dest: /etc/nginx/default.d/roboshop.conf
+
+- name: Restarting Nginx Service
+  ansible.builtin.systemd:
+    name: nginx
+    state: restarted
+
+
