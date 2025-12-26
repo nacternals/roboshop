@@ -1,18 +1,17 @@
 ---
 # tasks file for cart
-#Roboshop Application Basic Requirements have been called from /roles/common/main.yml
+
+#Setting-up Roboshop Application Basic Requirements
+- name: Run Roboshop Application Basic Requirements
+  ansible.buitlin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
 
 #Setting-up NodeJS
-- name: Disabling NodeJS Default Version (10)
-  ansible.builtin.command: "dnf module disable nodejs -y"
-
-- name: Enabling NodeJS Required Version (18)
-  ansible.builtin.command: "dnf module enable nodejs:18 -y"
-
-- name: Installing NodeJS Required Version (18)
-  ansible.builtin.package:
-    name: nodejs
-    state: present
+- name: Installing NodeJS
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: nodejs_installation.yml
 
 #Setting-up Cart Microservice
 - name: Downloading Cart Microservice Application Code
