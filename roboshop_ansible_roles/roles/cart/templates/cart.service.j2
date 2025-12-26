@@ -1,10 +1,11 @@
 [Unit]
 Description = Cart Service
+
 [Service]
 User=roboshop
-Environment=REDIS_HOST=redis.optimusprime.sbs
-Environment=CATALOGUE_HOST=catalogue.optimusprime.sbs
-Environment=CATALOGUE_PORT=8080
+Environment=REDIS_HOST={{ redis_host }}
+Environment=CATALOGUE_HOST={{ catalogue_host }}
+Environment=CATALOGUE_PORT={{ catalogue_port }}
 ExecStart=/bin/node /app/server.js
 SyslogIdentifier=cart
 
