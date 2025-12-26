@@ -1,2 +1,6 @@
 ---
 # handlers file for mongodb
+- name: Restart mongod
+  ansible.builtin.systemd:
+    name: mongod
+    state: restarted
