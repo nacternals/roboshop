@@ -1,2 +1,3 @@
 ---
 # defaults file for catalogue
+service_name: catalogue

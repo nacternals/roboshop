@@ -1,2 +1,3 @@
 ---
 # defaults file for dispatch
+service_name: dispatch
