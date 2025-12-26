@@ -2,7 +2,7 @@
 # tasks file for catalogue
 
 #Setting-up Basic Roboshop Application Requirements
-- name: Run Roboshop Basic App Requirements (From common for catalogue microservice)
+- name: Run Roboshop Basic App Requirements (From common for Catalogue microservice)
   ansible.builtin.import_role:
     name: common
     tasks_from: roboshop_basic_requirements.yml
