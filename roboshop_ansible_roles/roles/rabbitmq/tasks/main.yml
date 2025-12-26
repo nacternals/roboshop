@@ -1,51 +1,10 @@
 ---
 # tasks file for rabbitmq
 #Setting-up Roboshop Basic App Requirements
-- name: Creating Roboshop Default App Directory
-  ansible.builtin.file:
-    path: /app
-    state: directory
-
-- name: Creating Roboshop Default Log Directory
-  ansible.builtin.file:
-    path: /app/log
-    state: directory
-
-- name: Creating RabbitMQ Default Log File
-  ansible.builtin.file:
-    path: /app/log/rabbitmq_date_time.log
-    state: touch
-
-- name: Creating Roboshop Application Service User (roboshop) with Password
-  ansible.builtin.user:
-    name: roboshop
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{roboshop_password_hash}}"
-    update_password: on_create
-
-- name: Creating Ansible Default User (ansadmin)
-  ansible.builtin.user:
-    name: ansadmin
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{ansadmin_password_hash}}"
-    update_password: on_create
-
-- name: Ensuring SUDO is Installed
-  ansible.builtin.package:
-    name: sudo
-    state: present
-
-- name: Allowing ansadmin Passwordless Sudo
-  ansible.builtin.copy:
-    path: /etc/sudoers.d/ansadmin
-    content: "ansadmin ALL=(ALL) NOPASSWD=ALL\n"
-    owner: root
-    group: root
-    mode: "0440"
+- name: Run Roboshop Application Basic Requirements (From common for rabbitmq microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
 
 #Setting-up RabbitMQ Database
 - name: Creating RabbitMQ Dependencies (ErLang Repo)
@@ -74,5 +33,5 @@
   # ansible.builtin.command: "rabbitmqctl add_user roboshop roboshop123"
   ansible.builtin.shell: "rabbitmqctl list_users | awk '{print$1}' | grep -qx roboshop || rabbitmqctl add_user roboshop roboshop123 "
 
-- name: Enabling RabbitMQ Database User Permissions
+- name: Enabling RabbitMQ Database User (roboshop) Permissions
   ansible.builtin.command: 'rabbitmqctl set_permissions -p / roboshop ".*" ".*" ".*"'
