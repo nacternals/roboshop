@@ -1,9 +1,14 @@
 ---
 # tasks file for mongodb
-#Roboshop Application Basic Requirements have been called from /roles/common/main.yml
+
+#Setting-up Roboshop Application Basic Requirements
+- name: Run Roboshop Application Basic Requirements
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
 
 #Installing MongoDB Database
-- name: Creating mongodb.repo file to /etc/yum.repos.d/mongodb.repo
+- name: Copying mongodb.repo file as /etc/yum.repos.d/mongodb.repo
   ansible.builtin.copy:
     src: mongodb.repo
     dest: /etc/yum.repos.d/mongodb.repo
@@ -17,18 +22,14 @@
     state: present
 
 - name: Enabling and starting MongoDB Database
-  ansible.builtin.service:
+  ansible.builtin.systemd:
     name: mongod
     state: started
     enabled: true
 
-- name: Updating MongoDB bindIP listening address for remote servers
-  ansible.builtin.replace:
+- name: Configuring MongoDB to listen on all interfaces
+  ansible.builtin.lineinfile:
     path: /etc/mongod.conf
-    regexp: "127.0.0.1"
-    replace: "0.0.0.0"
-
-- name: Restarting MongoDB Service
-  ansible.builtin.service:
-    name: mongod
-    state: restarted
+    regexp: '^\s*bindIp:\s*'
+    line: "  bindIp: 0.0.0.0"
+  notify: Restart mongod
