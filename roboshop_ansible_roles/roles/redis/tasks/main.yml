@@ -1,50 +1,10 @@
 ---
 # tasks file for redis
 #Setting-up Roboshop Application Basic Requirements
-- name: Creating Roboshop Application Default Directory
-  ansible.builtin.file:
-    path: /app
-    state: directory
-
-- name: Creating Roboshop Default Log Directory
-  ansible.builtin.file:
-    path: /app/log
-    state: directory
-
-- name: Creating Redis Microservice Default Log File
-  ansible.builtin.file:
-    path: /app/log/redis_date_time.log
-
-- name: Creating Roboshop Application Service User (roboshop)
-  ansible.builtin.user:
-    name: roboshop
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{roboshop_password_hash}}"
-    update_password: on_create
-
-- name: Creating Ansible Default User (ansadmin)
-  ansinle.builtin.user:
-    name: ansadmin
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{ansadmin_password_hash}}"
-    update_password: on_create
-
-- name: Ensuring SUDO is Installed
-  ansible.builtin.package:
-    name: sudo
-    state: present
-
-- name: Allowing ansadmin passwordless sudo
-  ansible.builtin.copy:
-    path: /etc/sudoers.d/ansadmin
-    content: "ansadmin ALL=(ALL) NOPASSWD=ALL\n"
-    owner: root
-    group: root
-    mode: "0440"
+- name: Run Roboshop Application Basic Requirements (From common for Reddis Microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
 
 #Setting-up Redis Database
 - name: Installing Remi Repository
@@ -58,14 +18,15 @@
     name: redis
     state: present
 
-- name: Updating Redis bindIP Listening Address for Remote Servers
-  ansible.builtin.replace:
-    path: /etc/redis.conf
-    regexp: "127.0.0.1"
-    replace: "0.0.0.0"
-
 - name: Enabling and Starting Redis Service
   ansible.builtin.systemd:
     name: redis
     state: started
     enabled: true
+
+- name: Configuring Reddis to listen on all interfaces
+  ansible.builtin.lineinfile:
+    path: /etc/redis.conf
+    regexp: '^\s*bindIp:\s*'
+    line: "  bindIp: 0.0.0.0"
+  notify: Restart redis
