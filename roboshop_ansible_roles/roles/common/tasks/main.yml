@@ -16,6 +16,11 @@
     path: "/app/log/{{service_name}}_date_time.log"
     state: touch
 
+- name: Ensuring SUDO is Installed
+  ansible.builtin.package:
+    name: sudo
+    state: present
+
 - name: Creating Roboshop Default Service User (roboshop)
   ansible.builtin.user:
     name: roboshop
@@ -32,11 +37,6 @@
     create_home: true
     password: "{{ansadmin_password_hash}}"
     update_password: on_create
-
-- name: Ensuring SUDO is Installed
-  ansible.builtin.package:
-    name: sudo
-    state: present
 
 - name: Allowing ansadmin passwordless sudo
   ansible.builtin.copy:

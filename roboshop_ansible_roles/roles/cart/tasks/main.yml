@@ -1,48 +1,6 @@
 ---
 # tasks file for cart
-#Setting-up Roboshop Application Basic Requirement
-- name: Creating Roboshop Application Default Directory
-  ansible.builtin.file:
-    path: /app
-    state: directory
-
-- name: Creating Cart Microservice Default Log Directory
-  ansible.builtin.file:
-    path: /app/log
-    state: directory
-
-- name: Creating Cart Microservice Log File
-  ansible.builtin.file:
-    path: /app/log/cart_date_time.log
-    state: touch
-
-- name: Creating Roboshop Default Service User (roboshop) with Password
-  ansible.builtin.user:
-    name: roboshop
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{roboshop_password_hash}}"
-    update_password: on_create
-
-- name: Creating Ansible Default User (ansadmin) with Password
-  ansible.builtin.user:
-    name: ansadmin
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{ansadmin_password_hash}}"
-    update_password: on_create
-
-- name: Ensuring SUDO is Installed
-  ansible.builtin.package:
-    name: sudo
-    state: present
-
-- name: Allowing ansadmin passwordless sudo
-  ansible.builtin.copy:
-    path: /etc/sudoers.d/ansadmin
-    content: "ansadmin ALL=(ALL) NOPASSWD=(ALL)\n"
+#Roboshop Application Basic Requirements have been called from /roles/common/main.yml
 
 #Setting-up NodeJS
 - name: Disabling NodeJS Default Version (10)
