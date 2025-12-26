@@ -2,13 +2,13 @@
 # tasks file for cart
 
 #Setting-up Roboshop Application Basic Requirements
-- name: Run Roboshop Application Basic Requirements
+- name: Run Roboshop Application Basic Requirements (From common for Cart Microservice)
   ansible.buitlin.import_role:
     name: common
     tasks_from: roboshop_basic_requirements.yml
 
 #Setting-up NodeJS
-- name: Installing NodeJS
+- name: Installing NodeJS (From common for Cart Microservice)
   ansible.builtin.import_role:
     name: common
     tasks_from: nodejs_installation.yml
@@ -34,10 +34,7 @@
   ansible.builtin.template:
     src: cart.service.j2
     dest: /etc/systemd/system/cart.service
-
-- name: Reloading systemd daemon Service
-  ansbile.builtin.systemd:
-    daemon_reload: true
+  notify: Reload systemd daemon
 
 - name: Enabling and Staring Cart Service
   ansbile.builtin.systemd:
