@@ -2,60 +2,16 @@
 # tasks file for catalogue
 
 #Setting-up Basic Roboshop Application Requirements
-- name: Creating Roboshop Default App Directory
-  ansible.builtin.file:
-    path: /app
-    state: directory
-
-- name: Creating Roboshop Default Log Directory
-  ansible.builtin.file:
-    path: /app/log
-    state: directory
-
-- name: Creating Catalogue Log file
-  ansible.builtin.file:
-    path: /app/log/catalogue_date_time.log
-    state: touch
-
-- name: Creating Roboshop Default Service User (roboshop) with Password
-  ansible.builtin.user:
-    name: roboshop
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{roboshop_password_hash}}"
-    update_password: on_create
-
-- name: Creating Ansible Default User (ansadmin)
-  ansible.builtin.user:
-    name: ansadmin
-    state: present
-    shell: /bin/bash
-    create_home: true
-    password: "{{ansadmin_password_hash}}"
-    update_password: on_create
-
-- name: Ensuring SUDO is Installed
-  ansible.builtin.package:
-    name: sudo
-    state: present
-
-- name: Allowing ansadmin Passwordless Sudo
-  ansible.builtin.copy:
-    dest: /etc/sudoers.d/ansadmin
-    content: "ansadmin ALL=(ALL) NOPASSWD: ALL"
+- name: Run Roboshop Basic App Requirements (From common for catalogue microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
 
 #Setting-up NodeJS
-- name: Disabling NodeJS Default Version (10)
-  ansible.builtin.command: "dnf module disable nodejs -y"
-
-- name: Enabling Required NodeJS Version (18)
-  ansible.builtin.command: "dnf module enable nodejs:18 -y"
-
-- name: Installing NodeJs Version 18
-  ansible.builtin.package:
-    name: nodejs
-    state: present
+- name: Installing NodeJS (From common for catalogue microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: nodejs_installation.yml
 
 #Setting-up Catalogue Microservice
 - name: Downloading Catalogue Application Code
@@ -80,10 +36,7 @@
     src: catalogue.service.j2
     dest: /etc/systemd/system/catalogue.service
     mode: "0644"
-
-- name: Reloading systemd daemon
-  ansible.builtin.systemd:
-    daemon_reload: true
+  notify: Reload Daemon
 
 - name: Enabling and Starting Catalogue Service
   ansible.builtin.systemd:
@@ -92,7 +45,7 @@
     enabled: true
 
 #Loading Catalogue Schema into MongoDB Database
-- name: Installing mongodb.repo (from common)
+- name: Installing mongodb.repo (From common for catalogue microservice)
   ansible.builtin.import_role:
     name: common
     tasks_from: mongodb_repo.yml
