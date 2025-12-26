@@ -92,10 +92,10 @@
     enabled: true
 
 #Loading Catalogue Schema into MongoDB Database
-- name: Copying mongodb.repo as /etc/yum.repos.d/mongodb.repo
-  ansible.builtin.copy:
-    src: mongodb.repo
-    dest: /etc/yum.repos.d/mongodb.repo
+- name: Installing mongodb.repo (from common)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: mongodb_repo.yml
 
 - name: Installing MongoDB Client
   ansible.builtin.package:
