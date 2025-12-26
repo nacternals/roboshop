@@ -1,5 +1,5 @@
-roboshop_password_hash: RoboShop@1
-ansadmin_password_hash: admin
+roboshop_password_plain: RoboShop@1
+ansadmin_password_plain: admin
 redis_host: redis.optimusprime.sbs
 catalogue_host: catalogue.optimusprime.sbs
 catalogue_port: 8080 

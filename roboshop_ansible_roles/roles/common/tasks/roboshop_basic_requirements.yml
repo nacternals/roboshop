@@ -12,9 +12,9 @@
     path: /app/log
     state: directory
 
-- name: Creating {{service_name}} Log File
+- name: Creating {{ service_name }} Log File
   ansible.builtin.file:
-    path: "/app/log/{{service_name}}_date_time.log"
+    path: "/app/log/{{ service_name }}_date_time.log"
     state: touch
 
 - name: Ensuring SUDO is Installed
@@ -28,7 +28,7 @@
     state: present
     shell: /bin/bash
     create_home: true
-    password: "{{roboshop_password_hash}}"
+    password: "{{ roboshop_password_plain }}"
 
 - name: Creating Ansible Default User (ansadmin) with Password
   ansible.builtin.user:
@@ -36,7 +36,7 @@
     state: present
     shell: /bin/bash
     create_home: true
-    password: "{{ansadmin_password_hash}}"
+    password: "{{ ansadmin_password_plain }}"
     update_password: on_create
 
 - name: Allowing ansadmin passwordless sudo
