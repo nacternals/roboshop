@@ -1,10 +1,10 @@
 [Unit]
-Description = Catalogue Service
+Description=Catalogue Service
 
 [Service]
 User=roboshop
 Environment=MONGO=true
-Environment=MONGO_URL="mongodb://mongodb.optimusprime.sbs:27017/catalogue"
+Environment=MONGO_URL="mongodb://{{ mongo_host }}:{{ mongo_port }}/catalogue"
 ExecStart=/bin/node /app/server.js
 SyslogIdentifier=catalogue
 
