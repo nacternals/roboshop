@@ -1,47 +1,12 @@
 ---
 # tasks file for mysql
 #Setting-up Roboshop Application Basic Requirements
-- name: Creating Roboshop Default App Directory
-  ansible.builtin.file:
-    path: /app
-    state: directory
+- name: Run Roboshop Application Basic Requirements (From common for MySQL Microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
 
-- name: Creating Roboshop Default Log Directory
-  ansible.builtin.file:
-    path: /app/log
-    state: directory
-
-- name: Creating MySQL Default Log File
-  ansible.builtin.file:
-    path: /app/log/mysql_date_time.log
-    state: touch
-
-- name: Creating Roboshop Service User (roboshop) with Password
-  ansible.builtin.user:
-    name: roboshop
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{roboshop_password_hash}}"
-    update_password: on_create
-
-- name: Creating Ansible Default User (ansadmin) with Password
-  ansible.builtin.user:
-    name: ansadmin
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{ansadmin_password_hash}}"
-    update_password: on_create
-
-- name: Allowing ansadmin passwordless sudo
-  ansible.builtin.copy:
-    path: /etc/sudoers.d/ansadmin
-    content: "ansadmin ALL=(ALL) NOPASSWD=ALL\n"
-    owner: root
-    group: root
-    mode: "0440"
-
+#Setting-up MySQL Database
 - name: Disabling MySQL Default Version (8)
   ansible.builtin.command: "dnf module disable mysql -y"
 
@@ -63,5 +28,3 @@
 
 - name: Changing MySQL Default User (root) Password
   ansible.builtin.command: "mysql_secure_installation --set-root-pass RoboShop@1"
-
-
