@@ -18,3 +18,9 @@ user_host: user.optimusprime.sbs
 user_port: 8080
 
 mysql_host: mysql.optimusprime.sbs
+
+shipping_host: shipping.optimusprime.sbs
+shipping_port: 8080
+
+payment_host: payment.optimusprime.sbs
+payment_port: 8080
