@@ -6,6 +6,7 @@
   roles:
     - pingservice
 
+#Database Tier
 - name: MongoDB
   hosts: mongodb
   become: true
@@ -34,6 +35,7 @@
   roles:
     - rabbitmq
 
+#App Tier
 - name: Catalogue
   hosts: catalogue
   become: true
@@ -76,6 +78,7 @@
   roles:
     - dispatch
 
+#Web Tier
 - name: Web
   hosts: web
   become: true
