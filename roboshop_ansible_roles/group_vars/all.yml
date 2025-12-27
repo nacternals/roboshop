@@ -17,4 +17,4 @@ cart_port: 8080
 user_host: user.optimusprime.sbs
 user_port: 8080
 
-
+mysql_host: mysql.optimusprime.sbs
