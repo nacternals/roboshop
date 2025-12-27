@@ -1,7 +1,7 @@
 ---
 # tasks file for redis
 #Setting-up Roboshop Application Basic Requirements
-- name: Run Roboshop Application Basic Requirements (From common for Reddis Microservice)
+- name: Run Roboshop Application Basic Requirements (from common to reddis microservice)
   ansible.builtin.import_role:
     name: common
     tasks_from: roboshop_basic_requirements.yml
@@ -19,10 +19,9 @@
     state: present
 
 - name: Enabling and Starting Redis Service
-  ansible.builtin.systemd:
-    name: redis
-    state: started
-    enabled: true
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: enable_start_service.yml
 
 - name: Configuring Reddis to listen on all interfaces
   ansible.builtin.lineinfile:
