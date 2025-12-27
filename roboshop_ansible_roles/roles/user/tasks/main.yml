@@ -1,72 +1,22 @@
 ---
 # tasks file for user
-#Setting-up Roboshop Application Default Directory
-- name: Creating Roboshop Default App Directory
-  ansible.builtin.file:
-    path: /app
-    state: directory
-
-- name: Creating Roboshop Default Log Directory
-  ansible.builtin.file:
-    path: /app/log
-    state: directory
-
-- name: Creating User Microservice Default Log File
-  ansible.builtin.file:
-    path: /app/log/user_date_time.log
-    state: touch
-
-- name: Creating Roboshop Application Service User (roboshop) with Password
-  ansible.builtin.user:
-    name: roboshop
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{roboshop_password_hash}}"
-    update_password: on_create
-
-- name: Creating Ansible Default User (ansadmin) with Password
-  ansible.builtin.user:
-    name: ansadmin
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{ansadmin_password_hash}}"
-    update_password: on_create
-
-- name: Ensuring SUDO is installed
-  ansible.builtin.package:
-    name: sudo
-    state: present
-
-- name: Allowing ansadmin passwordless sudo
-  ansible.builtin.copy:
-    path: /etc/sudoers.d/ansadmin
-    content: "ansadmin ALL=(ALL) NOPASSWD=ALL\n"
+#Setting-up Roboshop Application Basic Requirements
+- name: Run Roboshop Application Basic Requirements (from common to user microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
 
 #Setting-up NodeJS
-- name: Disabling NodeJS Default Version (10)
-  ansible.builtin.command: "dnf module disable nodejs -y"
-
-- name: Enabling NodeJS Required Version (18)
-  ansible.builtin.command: "dnf module enable nodejs:18 -y"
-
 - name: Installing NodeJS
-  ansible.builtin.package:
-    name: nodejs
-    state: present
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: nodejs_installation.yml
 
 #Setting-up User Microservice Application Code
-- name: Downloading User Microservice Application Code
-  ansible.builtin.get_url:
-    url: https://roboshop-builds.s3.amazonaws.com/user.zip
-    dest: /tmp/user.zip
-
-- name: Unzipping User Microservice Application Code to /app
-  ansible.builtin.unarchive:
-    src: /tmp/user.zip
-    dest: /app
-    remote_src: true
+- name: Downloading and Unzipping User Microservice Application Code
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: download_unzip_service.yml
 
 - name: Installing User Microservice Application Dependencies
   ansible.builtin.command: "npm install"
@@ -77,29 +27,23 @@
   ansible.builtin.template:
     src: user.service.j2
     dest: /etc/systemd/system/user.service
-
-- name: Reloading systemd daemon
-  ansible.builtin.systemd:
-    daemon_reload: true
+  notify: Reload systemd daemon
 
 - name: Enabling and Starting User Service
-  ansible.builting.systemd:
-    name: user
-    state: started
-    enabled: true
-
+  ansible.builting.import_role:
+    name: common
+    tasks_from: enable_start_service.yml
 
 #Loading User Schema into MongoDB Database
 - name: Copying MongoDB Repo File as /etc/yum.repos.d/mongodb.repo
-  ansible.builtin.copy:
-    src: mongodb.repo
-    dest: /etc/yum.repos.d/mongodb.repo
+  ansible.builting.import_role:
+    name: common
+    tasks_from: mongodb_repo.yml
 
 - name: Installing MongoDB Client
-  ansible.builtin.package:
-    name: mongodb-org-shell
-    state: present
+  ansible.builting.import_role:
+    name: common
+    tasks_from: package_installer.yml
 
 - name: Loading User Schema into MongoDB Database
   ansible.builtin.shell: "mongo --host mongodb.optimusprime.sbs </app/schema/user.js"
-
