@@ -14,9 +14,9 @@
     tasks_from: mongodb_repo.yml
 
 - name: Installing MongoDB Database
-  ansible.builtin.package:
-    name: mongodb-org
-    state: present
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: package_installer.yml
 
 - name: Enabling and starting MongoDB Database
   ansible.builtin.import_role:

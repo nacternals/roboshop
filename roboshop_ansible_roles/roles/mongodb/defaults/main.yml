@@ -1,3 +1,4 @@
 ---
 # defaults file for mongodb
 service_name: mongod
+package_name: mongodb-org
