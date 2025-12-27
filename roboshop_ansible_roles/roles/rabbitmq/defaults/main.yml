@@ -1,3 +1,4 @@
 ---
 # defaults file for rabbitmq
 service_name: rabbitmq-server
+package_name: rabbitmq-server
