@@ -8,9 +8,9 @@
 
 #Setting-up GoLang
 - name: Installing Go (GoLang)
-  ansible.builtin.package:
-    name: golang
-    state: present
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: package_installer.yml
 
 #Setting-up Dispatch Application Code
 - name: Downloading and Unzipping Dispatch Microservice Application Code
