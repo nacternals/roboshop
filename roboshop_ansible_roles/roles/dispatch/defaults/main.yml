@@ -1,3 +1,4 @@
 ---
 # defaults file for dispatch
 service_name: dispatch
+package_name: golang
