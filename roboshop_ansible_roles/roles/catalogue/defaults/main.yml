@@ -1,3 +1,4 @@
 ---
 # defaults file for catalogue
 service_name: catalogue
+package_name: mongodb-org-shell

@@ -47,9 +47,9 @@
     tasks_from: mongodb_repo.yml
 
 - name: Installing MongoDB Client
-  ansible.builtin.package:
-    name: mongodb-org-shell
-    state: present
-
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: package_installer.yml
+  
 - name: Loading Catalogue Schema into MongoDB Database
   ansible.builtin.shell: "mongo --host mongodb.optimusprime.sbs </app/schema/catalogue.js"
