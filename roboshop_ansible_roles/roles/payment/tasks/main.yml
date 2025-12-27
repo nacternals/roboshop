@@ -8,19 +8,18 @@
 
 #Install Python
 - name: Installing Python 3.6, gcc, and python3-devel
-  ansible.builtin.package:
-    name:
-      - python3.6
-      - gcc
-      - python3-devel
-    state: present
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: package_installer.yml
+  vars:
+    package_name: "{{ item }}"
+  loop: "{{ payment_packages }}"
 
 #Setting-up Payment Microservice Application Code
 - name: Downloading and Unzipping Payment Microservice Application Code
   ansible.builtin.import_role:
     name: common
     tasks_from: download_unzip_service.yml
-
 
 #Setting-up Payment Application Dependencies
 - name: Installing Payment Application Dependencies
@@ -42,5 +41,3 @@
   ansible.builtin.import_role:
     name: common
     tasks_from: enable_start_service.yml
-
-
