@@ -6,11 +6,14 @@
     name: common
     tasks_from: roboshop_basic_requirements.yml
 
-#Setting-up Maven and Java
-- name: Installing Maven and Java
-  ansible.builtin.package:
-    name: maven
-    state: present
+#Setting-up Maven and Java and MySQL Client
+- name: Installing Maven and Java and MySQL Client
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: package_installer.yml
+  vars:
+    package_name: "{{ item }}"
+  loop: "{{ shipping_packages }}"
 
 #Setting-up Shipping Microservice Application Code
 - name: Downloading and Unzipping Shipping Microservice Application Code
@@ -44,10 +47,7 @@
     tasks_from: enable_start_service.yml
 
 #Loading Shipping Schema into MySQL Database
-- name: Installing MySQL Client
-  ansible.builtin.package:
-    name: mysql
-    state: present
+#MySQL Client has already been installed via package_installer.yml
 
 - name: Loading Shipping Schema into MySQL Database
   ansible.builtin.shell: " mysql -h mysql.optimusprime.sbs -uroot -pRoboShop@1 < /app/schema/shipping.sql "
