@@ -31,9 +31,8 @@
   notify: Reload systemd daemon
 
 - name: Enabling and Staring Cart Service
-  ansbile.builtin.systemd:
-    name: cart
-    state: started
-    enabled: true
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: enable_start_service.yml
 
 
