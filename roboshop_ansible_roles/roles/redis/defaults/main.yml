@@ -1,3 +1,5 @@
 ---
 # defaults file for redis
 service_name: redis
+package_name: redis
+
