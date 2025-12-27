@@ -2,13 +2,13 @@
 # tasks file for mongodb
 
 #Setting-up Roboshop Application Basic Requirements
-- name: Run Roboshop Application Basic Requirements (From common for MongoDB Microservice)
+- name: Run Roboshop Application Basic Requirements (from common to mongodb microservice)
   ansible.builtin.import_role:
     name: common
     tasks_from: roboshop_basic_requirements.yml
 
 #Setting-up MongoDB Database
-- name: Installing mongodb.repo (from common)
+- name: Installing mongodb.repo (from common to mongodb microservice)
   ansible.builtin.import_role:
     name: common
     tasks_from: mongodb_repo.yml
@@ -19,10 +19,9 @@
     state: present
 
 - name: Enabling and starting MongoDB Database
-  ansible.builtin.systemd:
-    name: mongod
-    state: started
-    enabled: true
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: enable_start_service.yml
 
 - name: Configuring MongoDB to listen on all interfaces
   ansible.builtin.lineinfile:
