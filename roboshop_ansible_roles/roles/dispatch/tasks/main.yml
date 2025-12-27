@@ -1,51 +1,10 @@
 ---
 # tasks file for dispatch
 #Setting-up Roboshop Basic App Requirements
-- name: Creating Roboshop Default App Directory
-  ansible.builtin.file:
-    path: /app
-    state: directory
-
-- name: Creating Roboshop Default Log Directory
-  ansible.builtin.file:
-    path: /app/log
-    state: directory
-
-- name: Creating Dispatch Microservice Log File
-  ansible.builtin.file:
-    path: /app/log/dispatch_date_time.log
-    state: touch
-
-- name: Creating Roboshop Default Service User (roboshop) with Password
-  ansible.builtin.user:
-    name: roboshop
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{roboshop_password_hash}}"
-    update_password: on_create
-
-- name: Creating Ansible Default User (ansadmin) with Password
-  ansible.builtin.user:
-    name: ansadmin
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{ansadmin_password_hash}}"
-    update_password: on_create
-
-- name: Ensuring SUDO is Installed
-  ansible.builtin.package:
-    name: sudo
-    state: present
-
-- name: Allowing ansadmin Passwordless SUDO
-  ansible.builtin.copy:
-    path: /etc/sudoers.d/ansadmin
-    content: "ansadmin ALL=(ALL) NOPASSWD=ALL\n"
-    owner: root
-    group: root
-    mode: "0440"
+- name: Run Roboshop Application Basic Requirements (from common to dispatch microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
 
 #Setting-up GoLang
 - name: Installing Go (GoLang)
@@ -54,16 +13,10 @@
     state: present
 
 #Setting-up Dispatch Application Code
-- name: Downloading Dispatch Microservice Application Code
-  ansible.builtin.get_url:
-    url: https://roboshop-builds.s3.amazonaws.com/dispatch.zip
-    dest: /tmp/dispatch.zip
-
-- name: Unzipping Dispatch Application Code to /app
-  ansible.builtin.unarchive:
-    src: /tmp/dispatch.zip
-    dest: /app
-    remote_src: true
+- name: Downloading and Unzipping Dispatch Microservice Application Code
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: download_unzip_service.yml
 
 #Setting-up Dispatch Application Dependencies and Build
 - name: Intializing Dispatch Application Dependencies and Building the Application
@@ -79,16 +32,15 @@
   ansible.builtin.template:
     src: dispatch.service.j2
     dest: /etc/systemd/system/dispatch.service
+  notify: Reload systemd daemon 
 
-- name: Reloading systemd daemon
-  ansible.builtin.systemd:
-    daemon_reload: true
-
+- name: Run handlers now (reload systemd before starting service)
+  ansible.builtin.meta: flush_handlers
+  
 - name: Enabling and Starting Dispatch Service
-  ansible.builtin.systemd:
-    name: dispatch
-    state: started
-    enabled: true
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: enable_start_service.yml
 
 
 
