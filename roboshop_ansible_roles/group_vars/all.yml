@@ -1,15 +1,20 @@
 roboshop_password_plain: RoboShop@1
 ansadmin_password_plain: admin
 
-redis_host: redis.optimusprime.sbs
-
-catalogue_host: catalogue.optimusprime.sbs
-catalogue_port: 8080
-
 mongo_host: mongodb.optimusprime.sbs
 mongo_port: 27017
 
+redis_host: redis.optimusprime.sbs
+redis_port: 6379
+
+mysql_host: mysql.optimusprime.sbs
+mysql_port: 3306 
+
 rabbitmq_host: rabbitmq.optimusprime.sbs
+rabbitmq_port: 5672
+
+catalogue_host: catalogue.optimusprime.sbs
+catalogue_port: 8080
 
 cart_host:  cart.optimusprime.sbs
 cart_port: 8080
@@ -17,10 +22,11 @@ cart_port: 8080
 user_host: user.optimusprime.sbs
 user_port: 8080
 
-mysql_host: mysql.optimusprime.sbs
-
 shipping_host: shipping.optimusprime.sbs
 shipping_port: 8080
 
 payment_host: payment.optimusprime.sbs
 payment_port: 8080
+
+dispatch_host: dispatch.optimusprime.sbs
+dispatch_port: 8080
