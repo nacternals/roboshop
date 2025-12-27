@@ -1,0 +1,24 @@
+#db tier
+mongo_host: mongodb.optimusprime.sbs
+redis_host: redis.optimusprime.sbs
+mysql_host: mysql.optimusprime.sbs
+rabbitmq_host: rabbitmq.optimusprime.sbs
+
+#app tier
+catalogue_host: catalogue.optimusprime.sbs
+cart_host: cart.optimusprime.sbs
+user_host: user.optimusprime.sbs
+shipping_host: shipping.optimusprime.sbs
+payment_host: payment.optimusprime.sbs
+dispatch_host: dispatch.optimusprime.sbs
+
+#web tier
+web_host: web.optimusprime.sbs
+
+#app ports
+catalogue_port: "{{ roboshop_app_port }}"
+cart_port: "{{ roboshop_app_port }}"
+user_port: "{{ roboshop_app_port }}"
+shipping_port: "{{ roboshop_app_port }}"
+payment_port: "{{ roboshop_app_port }}"
+dispatch_port: "{{ roboshop_app_port }}"

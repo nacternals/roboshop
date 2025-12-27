@@ -15,7 +15,7 @@ dispatch_host: dispatch.dev.optimusprime.sbs
 #web tier
 web_host: web.dev.optimusprime.sbs
 
-#ports
+#app ports
 catalogue_port: "{{ roboshop_app_port }}"
 cart_port: "{{ roboshop_app_port }}"
 user_port: "{{ roboshop_app_port }}"
