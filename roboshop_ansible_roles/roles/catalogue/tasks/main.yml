@@ -32,6 +32,9 @@
     mode: "0644"
   notify: Reload Daemon
 
+- name: Run handlers now (reload systemd before starting service)
+  ansible.builtin.meta: flush_handlers
+
 - name: Enabling and Starting Catalogue Service
   ansible.builtin.import_role:
     name: common
