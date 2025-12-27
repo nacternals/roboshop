@@ -4,17 +4,17 @@
 #Setting-up Basic App Requirements
 - name: Creating Roboshop Default App Directory
   ansible.builtin.file:
-    path: /app
+    path: "{{ roboshop_app_dir }}"
     state: directory
 
 - name: Creating Roboshop Log Directory
   ansible.builtin.file:
-    path: /app/log
+    path: "{{ roboshop_log_dir }}"
     state: directory
 
 - name: Creating {{ service_name }} Log File
   ansible.builtin.file:
-    path: "/app/log/{{ service_name }}_date_time.log"
+    path: "{{ roboshop_log_dir }}/{{ service_name }}_date_time.log"
     state: touch
 
 - name: Ensuring SUDO is Installed
