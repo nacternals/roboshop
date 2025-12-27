@@ -1,0 +1,11 @@
+#Setting-up {{ service_name }}Microservice
+- name: Downloading {{ service_name }} Microservice Application Code
+  ansible.builtin.get_url:
+    url: "https://roboshop-builds.s3.amazonaws.com/{{ service_name }}.zip"
+    dest: "/tmp/{{ service_name }}.zip"
+
+- name: Unzipping {{ service_name }} Microservice Application Code
+  ansible.builtin.unarchive:
+    src: "/tmp/{{ service_name }}.zip"
+    dest: /app
+    remote_src: true

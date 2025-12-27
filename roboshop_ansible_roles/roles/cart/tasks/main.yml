@@ -2,28 +2,22 @@
 # tasks file for cart
 
 #Setting-up Roboshop Application Basic Requirements
-- name: Run Roboshop Application Basic Requirements (From common for Cart Microservice)
+- name: Run Roboshop Application Basic Requirements (from common to cart microservice)
   ansible.buitlin.import_role:
     name: common
     tasks_from: roboshop_basic_requirements.yml
 
 #Setting-up NodeJS
-- name: Installing NodeJS (From common for Cart Microservice)
+- name: Installing NodeJS (from common to cart microservice)
   ansible.builtin.import_role:
     name: common
     tasks_from: nodejs_installation.yml
 
 #Setting-up Cart Microservice
-- name: Downloading Cart Microservice Application Code
-  ansible.builtin.get_url:
-    url: https://roboshop-builds.s3.amazonaws.com/cart.zip
-    dest: /tmp/cart.zip
-
-- name: Unzipping Cart Microservice Application Code
-  ansible.builtin.unarchive:
-    src: /tmp/cart.zip
-    dest: /app
-    remote_src: true
+- name: Downloading and Unzipping Cart Microservice Application Code (from common to cart microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: download_unzip_service.yml
 
 - name: Installing Cart Application Dependencies
   ansible.builtin.command: "npm install"
