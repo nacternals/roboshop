@@ -8,3 +8,5 @@ catalogue_port: 8080
 
 mongo_host: mongodb.optimusprime.sbs
 mongo_port: 27017
+
+rabbitmq_host: rabbitmq.optimusprime.sbs
