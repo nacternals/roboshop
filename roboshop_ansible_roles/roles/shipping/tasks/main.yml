@@ -1,51 +1,10 @@
 ---
 # tasks file for shipping
-#Setting-up Roboshop Basic App Requirements
-- name: Creating Roboshop Default App Directory
-  ansible.builtin.file:
-    path: /app
-    state: directory
-
-- name: Creating Roboshop Default Log Directory
-  ansible.builtin.file:
-    path: /app/log
-    state: directory
-
-- name: Creating Shipping Microservice Default Log File
-  ansible.builtin.file:
-    path: /app/log/shipping_date_time.log
-    state: touch
-
-- name: Creating Roboshop App Service User (roboshop) with Password
-  ansible.builtin.user:
-    name: roboshop
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{roboshop_password_hash}}"
-    update_password: on_create
-
-- name: Creating Ansible Default User (ansadmin)
-  ansible.builtin.user:
-    name: ansadmin
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{ansadmin_password_hash}}"
-    update_password: on_create
-
-- name: Ensuring SUDO is Installed
-  ansible.builtin.package:
-    name: sudo
-    state: present
-
-- name: Allowing ansadmin Passwordless Sudo
-  ansible.builtin.copy:
-    path: /etc/sudoers.d/ansadmin
-    content: "ansadmin ALL=(ALL) NOPASSWD=ALL\n"
-    owner: root
-    group: root
-    mode: "0440"
+#Setting-up Roboshop Application Basic Requirements
+- name: Run Roboshop Basic Application Requirements (from common to shipping microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
 
 #Setting-up Maven and Java
 - name: Installing Maven and Java
@@ -53,18 +12,11 @@
     name: maven
     state: present
 
-
 #Setting-up Shipping Microservice Application Code
-- name: Downloading Shipping Microservice Application Code
-  ansible.builtin.get_url:
-    url: https://roboshop-builds.s3.amazonaws.com/shipping.zip
-    dest: /tmp/shipping.zip
-
-- name: Unzipping Shipping Microservice Application Code to /app
-  ansible.builtin.unarchive:
-    src: /tmp/shipping.zip
-    dest: /app
-    remote_src: true
+- name: Downloading and Unzipping Shipping Microservice Application Code
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: download_unzip_service.yml
 
 - name: Downloading Shipping Application Dependencies and Building Application Jar
   ansible.builting.command: "mvn clean package"
@@ -81,30 +33,22 @@
   ansible.builtin.templates:
     path: shipping.service.j2
     dest: /etc/systemd/system/shipping.service
+  notify: Reload systemd daemon
 
-- name: Reloading systemd daemon
-  ansible.builtin.systemd:
-    daemon_reload: true
+- name: Run handlers now (reload systemd before starting service)
+  ansible.builtin.meta: flush_handlers
 
 - name: Enabling and Staring Shipping Service
-  ansible.builtin.systemd:
-    name: shipping
-    state: started
-    enabled: true
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: enable_start_service.yml
 
 #Loading Shipping Schema into MySQL Database
 - name: Installing MySQL Client
   ansible.builtin.package:
-    name: "{{'mysql-client' if ansible_os_family == 'Debian' else 'mysql'}}"
+    name: mysql
     state: present
 
 - name: Loading Shipping Schema into MySQL Database
   ansible.builtin.shell: " mysql -h mysql.optimusprime.sbs -uroot -pRoboShop@1 < /app/schema/shipping.sql "
-
-- name: Restarting Shipping Service
-  ansible.builtin.systemd:
-    name: shipping
-    state: restarted
-
-
-
+  notify: Restart Shipping Service
