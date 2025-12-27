@@ -50,5 +50,5 @@
 #MySQL Client has already been installed via package_installer.yml
 
 - name: Loading Shipping Schema into MySQL Database
-  ansible.builtin.shell: " mysql -h mysql.optimusprime.sbs -uroot -pRoboShop@1 < /app/schema/shipping.sql "
+  ansible.builtin.shell: " mysql -h {{ mysql_host }} -uroot -pRoboShop@1 < /app/schema/shipping.sql "
   notify: Restart Shipping Service

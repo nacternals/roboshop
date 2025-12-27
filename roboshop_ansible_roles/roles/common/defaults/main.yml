@@ -1,2 +1,4 @@
 ---
 # defaults file for common
+roboshop_app_dir: /app
+roboshop_log_dir: "{{ roboshop_app_dir }}/log"
