@@ -30,9 +30,10 @@
     dest: /etc/systemd/system/cart.service
   notify: Reload systemd daemon
 
+- name: Run handlers now (reload systemd before starting service)
+  ansible.builtin.meta: flush_handlers
+
 - name: Enabling and Staring Cart Service
   ansible.builtin.import_role:
     name: common
     tasks_from: enable_start_service.yml
-
-
