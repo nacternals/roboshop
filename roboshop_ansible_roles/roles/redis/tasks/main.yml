@@ -14,9 +14,9 @@
   ansible.builtin.command: "dnf module enable redis:remi-6.2 -y"
 
 - name: Installing Redis Required Version (6.2)
-  ansible.builtin.package:
-    name: redis
-    state: present
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: package_installer.yml
 
 - name: Enabling and Starting Redis Service
   ansible.builtin.import_role:
