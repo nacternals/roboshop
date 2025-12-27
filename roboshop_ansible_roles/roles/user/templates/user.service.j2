@@ -1,11 +1,11 @@
 [Unit]
-Description = User Service
+Description=User Service
 
 [Service]
 User=roboshop
 Environment=MONGO=true
-Environment=REDIS_HOST=redis.optimusprime.sbs
-Environment=MONGO_URL="mongodb://mongodb.optimusprime.sbs:27017/users"
+Environment=REDIS_HOST={{ redis_host }}
+Environment=MONGO_URL="mongodb://{{ mongo_host }}:{{ mongo_port }}/users"
 ExecStart=/bin/node /app/server.js
 SyslogIdentifier=user
 
