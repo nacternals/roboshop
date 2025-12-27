@@ -10,3 +10,11 @@ mongo_host: mongodb.optimusprime.sbs
 mongo_port: 27017
 
 rabbitmq_host: rabbitmq.optimusprime.sbs
+
+cart_host:  cart.optimusprime.sbs
+cart_port: 8080
+
+user_host: user.optimusprime.sbs
+user_port: 8080
+
+

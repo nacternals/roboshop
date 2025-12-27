@@ -1,51 +1,10 @@
 ---
 # tasks file for payment
 #Setting-up Roboshop Basic App Requirements
-- name: Creating Roboshop Default App Directory
-  ansible.builtin.file:
-    path: /app
-    state: directory
-
-- name: Creating Roboshop Default Log Directory
-  ansible.builtin.file:
-    path: /app/log
-    state: directory
-
-- name: Creating Payment Microservice Default Log File
-  ansible.builtin.file:
-    path: /app/log/payment_date_time.log
-    state: touch
-
-- name: Creating Roboshop Application Service User (roboshop) with Password
-  ansible.builtin.user:
-    name: roboshop
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{roboshop_password_hash}}"
-    update_password: on_create
-
-- name: Creating Ansible Default User (ansadmin) with Password
-  ansible.builtin.user:
-    name: ansadmin
-    state: present
-    create_home: true
-    shell: /bin/bash
-    password: "{{ansadmin_password_hash}}"
-    update_password: on_create
-
-- name: Ensuring SUDO is Installed
-  ansible.builtin.package:
-    name: sudo
-    state: present
-
-- name: Allowing ansadmin passwordless sudo
-  ansible.builtin.copy:
-    path: /etc/sudoers.d/ansadmin
-    content: "ansadmin ALL=(ALL) NOPASSWD=ALL\n"
-    owner: root
-    group: root
-    mode: "0440"
+- name: Run Roboshop Basic Application Requirements (from common to payment microservice)
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: roboshop_basic_requirements.yml
 
 #Install Python
 - name: Installing Python 3.6, gcc, and python3-devel
@@ -57,16 +16,11 @@
     state: present
 
 #Setting-up Payment Microservice Application Code
-- name: Downloading Payment Microservice Application Code
-  ansible.builtin.get_url:
-    url: https://roboshop-builds.s3.amazonaws.com/payment.zip
-    dest: /tmp/payment.zip
+- name: Downloading and Unzipping Payment Microservice Application Code
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: download_unzip_service.yml
 
-- name: Unzipping Payment Microservice Application Code to /app
-  ansible.builtin.unarchive:
-    src: /tmp/payment.zip
-    dest: /app
-    remote_src: true
 
 #Setting-up Payment Application Dependencies
 - name: Installing Payment Application Dependencies
@@ -79,15 +33,14 @@
   ansible.builtin.copy:
     src: payment.service.j2
     dest: /etc/systemd/system/payment.service
+  notify: Reload systemd daemon
 
-- name: Reloading Payment Service
-  ansible.builtin.systemd:
-    daemon_reload: true
+- name: Run handlers now (reload systemd before starting service)
+  ansible.builtin.meta: flush_handlers
 
 - name: Enabling and Starting Payment Service
-  ansible.builtin.systemd:
-    name: payment
-    state: started
-    enabled: true
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: enable_start_service.yml
 
 

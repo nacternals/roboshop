@@ -1,2 +1,5 @@
 ---
 # handlers file for payment
+- name: Reload systemd daemon
+  ansbile.builtin.systemd:
+    daemon_reload: true
