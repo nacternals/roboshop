@@ -18,9 +18,9 @@
     creates: /etc/yum.repos.d/rabbitmq_rabbitmq-server.repo
 
 - name: Installing RabbitMQ Database
-  ansible.builtin.package:
-    name: rabbitmq-server
-    state: present
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: package_installer.yml
 
 - name: Enabling and Starting RabbitMQ Database
   ansible.builtin.import_role:
