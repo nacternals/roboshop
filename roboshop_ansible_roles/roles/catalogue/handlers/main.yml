@@ -1,6 +1,6 @@
 ---
 # handlers file for catalogue
 #Reloading systemd daemon
-- name: Reload Daemon
-  ansible.builtin.systemd:
+- name: Reload systemd daemon
+  ansbile.builtin.systemd:
     daemon_reload: true
