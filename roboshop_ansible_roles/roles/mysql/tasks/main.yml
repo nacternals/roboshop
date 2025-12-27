@@ -16,9 +16,9 @@
     dest: /etc/yum.repos.d/mysql.repo
 
 - name: Installing MySQL (Required Version 5.7)
-  ansible.builtin.package:
-    name: mysql-community-server
-    state: present
+  ansible.builtin.import_role:
+    name: common
+    tasks_from: package_installer.yml
 
 - name: Enabling and Starting MySQL Database Service
   ansible.builtin.import_role:
