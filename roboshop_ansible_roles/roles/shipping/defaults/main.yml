@@ -1,3 +1,6 @@
 ---
 # defaults file for shipping
 service_name: shipping
+shipping_packages:
+  - maven
+  - mysql
