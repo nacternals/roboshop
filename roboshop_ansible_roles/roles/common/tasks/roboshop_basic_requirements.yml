@@ -2,27 +2,12 @@
 # tasks file for common
 
 #Setting-up Basic App Requirements
-- name: Creating Roboshop Default App Directory
-  ansible.builtin.file:
-    path: "{{ roboshop_app_dir }}"
-    state: directory
-
-- name: Creating Roboshop Log Directory
-  ansible.builtin.file:
-    path: "{{ roboshop_log_dir }}"
-    state: directory
-
-- name: Creating {{ service_name }} Log File
-  ansible.builtin.file:
-    path: "{{ roboshop_log_dir }}/{{ service_name }}_date_time.log"
-    state: touch
-
 - name: Ensuring SUDO is Installed
   ansible.builtin.package:
     name: sudo
     state: present
 
-- name: Creating Roboshop Default Service User (roboshop)
+- name: Creating Roboshop Service User (roboshop) with Password
   ansible.builtin.user:
     name: roboshop
     state: present
@@ -30,7 +15,7 @@
     create_home: true
     password: "{{ roboshop_password_plain | password_hash('sha512') }}"
 
-- name: Creating Ansible Default User (ansadmin) with Password
+- name: Creating Ansible Automation User (ansadmin) with Password
   ansible.builtin.user:
     name: ansadmin
     state: present
@@ -46,3 +31,27 @@
     owner: root
     group: root
     mode: "0440"
+
+- name: Creating Roboshop Default App Directory
+  ansible.builtin.file:
+    path: "{{ roboshop_app_dir }}"
+    state: directory
+    owner: roshoshop
+    group: roshoshop
+    mode: "0755"
+
+- name: Creating Roboshop Log Directory
+  ansible.builtin.file:
+    path: "{{ roboshop_log_dir }}"
+    state: directory
+    owner: roshoshop
+    group: roshoshop
+    mode: "0755"
+
+- name: Creating {{ service_name }} Log File
+  ansible.builtin.file:
+    path: "{{ roboshop_log_dir }}/{{ service_name }}_date_time.log"
+    state: touch
+    owner: roshoshop
+    group: roshoshop
+    mode: "0755"
