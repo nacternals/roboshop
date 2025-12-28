@@ -5,7 +5,7 @@ roboshop_log_dir: "{{ roboshop_app_dir }}/log"
 
 roboshop_password_plain: RoboShop@1
 ansadmin_password_plain: admin
-ansadmin_pubkey_path: /home/ansadmin/.ssh/ansible_practice_key.pem.pub
+ansadmin_pubkey_path: /home/ansadmin/.ssh/ansible_practice_keypair.pem.pub
 
 mongo_port: 27017
 redis_port: 6379
