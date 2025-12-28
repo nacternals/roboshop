@@ -8,12 +8,9 @@
 
 #Setting-up Maven and Java and MySQL Client
 - name: Installing Maven and Java and MySQL Client
-  ansible.builtin.import_role:
-    name: common
-    tasks_from: package_installer.yml
-  vars:
-    package_name: "{{ item }}"
-  loop: "{{ shipping_packages }}"
+  ansible.builtin.package:
+    name: "{{ shipping_packages }}"
+    state: present
 
 #Setting-up Shipping Microservice Application Code
 - name: Downloading and Unzipping Shipping Microservice Application Code
