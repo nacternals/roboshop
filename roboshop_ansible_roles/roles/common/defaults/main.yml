@@ -2,4 +2,4 @@
 # defaults file for common
 roboshop_app_dir: /app
 roboshop_log_dir: "{{ roboshop_app_dir }}/log"
-ansadmin_pubkey_path: /home/ansadmin/.ssh/ansible_practice_key.pem.pub
+ansadmin_pubkey_path: /home/ansadmin/.ssh/ansible_practice_keypair.pem.pub
