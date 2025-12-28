@@ -1,4 +1,16 @@
 ---
+# 0) Bootstrap admin access (run once initially using -u centos)
+- name: Bootstrap ansadmin SSH access on all Roboshop hosts
+  hosts: roboshop
+  become: true
+  gather_facts: false
+  tasks:
+    - name: Setup ansadmin SSH access
+      ansible.builtin.import_role:
+        name: common
+        tasks_from: ssh_access_ansadmin.yml
+      when: bootstrap_ansadmin | default(false) | bool
+  
 - name: Roboshop Engine
   hosts: roboshop
   become: true
