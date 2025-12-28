@@ -12,10 +12,10 @@ RESET="\e[0m"
 
 # ---------- AWS / Infra Config (EDIT THESE) ----------
 AWS_REGION="us-east-1"         # e.g. us-east-1
-AMI_ID="ami-0b4f379183e5706b9"  # TODO: put your AMI ID here (Amazon Linux 2, etc.)
+AMI_ID="ami-0b4f379183e5706b9" # TODO: put your AMI ID here (Amazon Linux 2, etc.)
 # SUBNET_ID="subnet-xxxxxxxx"     # TODO: your subnet ID
 SECURITY_GROUP_ID="sg-04357080f8248528a" # TODO: your security group ID
-KEY_NAME="ansible_practice_keypair"    # TODO: your EC2 key pair name
+KEY_NAME="ansible_practice_keypair"      # TODO: your EC2 key pair name
 
 HOSTED_ZONE_ID="Z06046792KQ5HDP2YEDR4" # TODO: Route53 hosted zone ID for optimusprime.sbs
 DOMAIN_NAME="optimusprime.sbs"
@@ -47,13 +47,13 @@ declare -A PUBLIC_IPS
 # ---------- Paths & Logs ----------
 TIMESTAMP="$(date +"%F-%H-%M-%S")"
 
-APP_DIR="/app"
-LOGS_DIRECTORY="${APP_DIR}/logs"
+roboshop_app_dir="/app"
+roboshop_log_dir="${roboshop_app_dir}/log"
 
 SCRIPT_NAME="$(basename "$0")"
 SCRIPT_BASE="${SCRIPT_NAME%.*}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOG_FILE="${LOGS_DIRECTORY}/${SCRIPT_BASE}-$(date +%F).log"
+LOG_FILE="${roboshop_log_dir}/${SCRIPT_BASE}-$(date +%F).log"
 
 printBoxHeader() {
 	local TITLE="$1"
@@ -97,28 +97,6 @@ isItRootUser() {
 	fi
 }
 
-# ---------- Basic app requirements (/app) ----------
-basicAppRequirements() {
-	echo -e "${CYAN}Ensuring basic application requirements (${APP_DIR} dir and ansadmin user)...${RESET}"
-
-	echo -e "${CYAN}Checking ${APP_DIR} directory...${RESET}"
-	if [[ -d "${APP_DIR}" ]]; then
-		echo -e "${YELLOW}${APP_DIR} directory already exists. Skipping creation....${RESET}"
-	else
-		echo -e "${CYAN}${APP_DIR} directory not found. Creating ${APP_DIR}....${RESET}"
-		${SUDO:-} mkdir -p "${APP_DIR}"
-		validateStep $? \
-			"${APP_DIR} directory created successfully." \
-			"Failed to create ${APP_DIR} directory."
-	fi
-
-	echo -e "${CYAN}Setting ownership of ${APP_DIR} to user 'ansadmin'...${RESET}"
-	${SUDO:-} chown -R ansadmin:ansadmin "${APP_DIR}"
-	validateStep $? \
-		"Ownership of ${APP_DIR} set to ansadmin successfully." \
-		"Failed to set ownership of ${APP_DIR} to ansadmin."
-}
-
 # ---------- Check AWS CLI ----------
 checkAwsCli() {
 	echo -e "${CYAN}Checking AWS CLI availability...${RESET}"
@@ -138,7 +116,6 @@ checkAwsCli() {
 launchEc2Instances() {
 	echo -e "${CYAN}Launching EC2 instances for Roboshop microservices...${RESET}"
 	echo -e "${YELLOW}AMI_ID=${AMI_ID}, SG=${SECURITY_GROUP_ID}, KEY_NAME=${KEY_NAME}${RESET}"
-	# SUBNET_ID=${SUBNET_ID}, 
 
 	for svc in "${SERVICES[@]}"; do
 		local itype="${INSTANCE_TYPES[$svc]}"
@@ -274,14 +251,14 @@ printSummary() {
 
 # ---------- Main ----------
 main() {
-	mkdir -p "${LOGS_DIRECTORY}"
+	mkdir -p "${roboshop_log_dir}"
 
 	# Send stdout+stderr to log file
 	exec >>"${LOG_FILE}" 2>&1
 
 	printBoxHeader "Roboshop Infra Script Execution" "${TIMESTAMP}"
-	echo "App Directory       : ${APP_DIR}"
-	echo "Log Directory       : ${LOGS_DIRECTORY}"
+	echo "App Directory       : ${roboshop_app_dir}"
+	echo "Log Directory       : ${roboshop_log_dir}"
 	echo "Log File            : ${LOG_FILE}"
 	echo "Script Directory    : ${SCRIPT_DIR}"
 	echo "AWS Region          : ${AWS_REGION}"
@@ -290,9 +267,6 @@ main() {
 
 	echo -e "\n${CYAN}Calling isItRootUser() to validate the user...${RESET}"
 	isItRootUser
-
-	echo -e "\n${CYAN}Calling basicAppRequirements()....${RESET}"
-	basicAppRequirements
 
 	echo -e "\n${CYAN}Checking AWS CLI and IAM Role....${RESET}"
 	checkAwsCli
