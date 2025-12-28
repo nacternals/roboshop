@@ -1,0 +1,30 @@
+---
+- name: Ensure ansadmin user exists
+  ansible.builtin.user:
+    name: ansadmin
+    state: present
+    shell: /bin/bash
+    create_home: true
+
+- name: Add SSH public key for ansadmin
+  ansible.builtin.authorized_key:
+    user: ansadmin
+    state: present
+    key: "{{ lookup('file', ansadmin_pubkey_path) }}"
+    manage_dir: true
+
+- name: Ensure correct permissions on ansadmin .ssh
+  ansible.builtin.file:
+    path: /home/ansadmin/.ssh
+    state: directory
+    owner: ansadmin
+    group: ansadmin
+    mode: "0700"
+
+- name: Ensure correct permissions on authorized_keys
+  ansible.builtin.file:
+    path: /home/ansadmin/.ssh/authorized_keys
+    state: file
+    owner: ansadmin
+    group: ansadmin
+    mode: "0600"
