@@ -3,7 +3,7 @@
 
 #Setting-up Roboshop Application Basic Requirements
 - name: Run Roboshop Application Basic Requirements (from common to cart microservice)
-  ansible.buitlin.import_role:
+  ansible.builtin.import_role:
     name: common
     tasks_from: roboshop_basic_requirements.yml
 
