@@ -36,22 +36,22 @@
   ansible.builtin.file:
     path: "{{ roboshop_app_dir }}"
     state: directory
-    owner: roshoshop
-    group: roshoshop
+    owner: roboshop
+    group: roboshop
     mode: "0755"
 
 - name: Creating Roboshop Log Directory
   ansible.builtin.file:
     path: "{{ roboshop_log_dir }}"
     state: directory
-    owner: roshoshop
-    group: roshoshop
+    owner: roboshop
+    group: roboshop
     mode: "0755"
 
 - name: Creating {{ service_name }} Log File
   ansible.builtin.file:
     path: "{{ roboshop_log_dir }}/{{ service_name }}_date_time.log"
     state: touch
-    owner: roshoshop
-    group: roshoshop
+    owner: roboshop
+    group: roboshop
     mode: "0755"
