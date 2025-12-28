@@ -15,22 +15,22 @@
     create_home: true
     password: "{{ roboshop_password_plain | password_hash('sha512') }}"
 
-- name: Creating Ansible Automation User (ansadmin) with Password
-  ansible.builtin.user:
-    name: ansadmin
-    state: present
-    shell: /bin/bash
-    create_home: true
-    password: "{{ ansadmin_password_plain | password_hash('sha512') }}"
-    update_password: on_create
+# - name: Creating Ansible Automation User (ansadmin) with Password
+#   ansible.builtin.user:
+#     name: ansadmin
+#     state: present
+#     shell: /bin/bash
+#     create_home: true
+#     password: "{{ ansadmin_password_plain | password_hash('sha512') }}"
+#     update_password: on_create
 
-- name: Allowing ansadmin passwordless sudo
-  ansible.builtin.copy:
-    dest: /etc/sudoers.d/ansadmin
-    content: "ansadmin ALL=(ALL) NOPASSWD: ALL\n"
-    owner: root
-    group: root
-    mode: "0440"
+# - name: Allowing ansadmin passwordless sudo
+#   ansible.builtin.copy:
+#     dest: /etc/sudoers.d/ansadmin
+#     content: "ansadmin ALL=(ALL) NOPASSWD: ALL\n"
+#     owner: root
+#     group: root
+#     mode: "0440"
 
 - name: Creating Roboshop Default App Directory
   ansible.builtin.file:
