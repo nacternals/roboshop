@@ -19,7 +19,7 @@
     tasks_from: download_unzip_service.yml
 
 - name: Downloading Shipping Application Dependencies and Building Application Jar
-  ansible.builting.command: "mvn clean package"
+  ansible.builtin.command: "mvn clean package"
   args:
     chdir: /app
 
