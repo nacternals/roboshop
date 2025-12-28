@@ -28,3 +28,12 @@
     owner: ansadmin
     group: ansadmin
     mode: "0600"
+
+- name: Allow ansadmin passwordless sudo
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/ansadmin
+    content: "ansadmin ALL=(ALL) NOPASSWD: ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+  
