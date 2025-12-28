@@ -1,5 +1,5 @@
 ---
 # handlers file for dispatch
 - name: Reload systemd daemon
-  ansbile.builtin.systemd:
+  ansible.builtin.systemd:
     daemon_reload: true
