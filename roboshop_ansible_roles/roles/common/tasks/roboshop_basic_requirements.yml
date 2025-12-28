@@ -28,7 +28,7 @@
     state: present
     shell: /bin/bash
     create_home: true
-    password: "{{ roboshop_password_plain }}"
+    password: "{{ roboshop_password_plain | password_hash('sha512') }}"
 
 - name: Creating Ansible Default User (ansadmin) with Password
   ansible.builtin.user:
@@ -36,7 +36,7 @@
     state: present
     shell: /bin/bash
     create_home: true
-    password: "{{ ansadmin_password_plain }}"
+    password: "{{ ansadmin_password_plain | password_hash('sha512') }}"
     update_password: on_create
 
 - name: Allowing ansadmin passwordless sudo
