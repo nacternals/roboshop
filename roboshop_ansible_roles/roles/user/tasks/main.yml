@@ -30,7 +30,7 @@
   notify: Reload systemd daemon
 
 - name: Enabling and Starting User Service
-  ansible.builting.import_role:
+  ansible.builtin.import_role:
     name: common
     tasks_from: enable_start_service.yml
 
