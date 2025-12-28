@@ -36,12 +36,12 @@
 
 #Loading User Schema into MongoDB Database
 - name: Copying MongoDB Repo File as /etc/yum.repos.d/mongodb.repo
-  ansible.builting.import_role:
+  ansible.builtin.import_role:
     name: common
     tasks_from: mongodb_repo.yml
 
 - name: Installing MongoDB Client
-  ansible.builting.import_role:
+  ansible.builtin.import_role:
     name: common
     tasks_from: package_installer.yml
 
