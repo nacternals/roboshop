@@ -4,6 +4,7 @@
   hosts: roboshop
   become: true
   gather_facts: false
+  tags: [bootstrap]
   tasks:
     - name: Setup ansadmin SSH access
       ansible.builtin.import_role:
@@ -15,6 +16,7 @@
   hosts: roboshop
   become: true
   gather_facts: false
+  tags: [pingservice]
   roles:
     - pingservice
 
