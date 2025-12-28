@@ -24,7 +24,7 @@
 - name: Ensure correct permissions on authorized_keys
   ansible.builtin.file:
     path: /home/ansadmin/.ssh/authorized_keys
-    state: file
+    state: touch
     owner: ansadmin
     group: ansadmin
     mode: "0600"
