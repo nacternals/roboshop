@@ -25,6 +25,7 @@
   hosts: mongodb
   become: true
   gather_facts: false
+  tags: [mongodb]
   roles:
     - mongodb
 
@@ -32,6 +33,7 @@
   hosts: redis
   become: true
   gather_facts: false
+  tags: [redis]
   roles:
     - redis
 
@@ -39,6 +41,7 @@
   hosts: mysql
   become: true
   gather_facts: false
+  tags: [mysql]
   roles:
     - mysql
 
@@ -46,6 +49,7 @@
   hosts: rabbitmq
   become: true
   gather_facts: false
+  tags: [rabbitmq]
   roles:
     - rabbitmq
 
@@ -54,6 +58,7 @@
   hosts: catalogue
   become: true
   gather_facts: false
+  tags: [catalogue]
   roles:
     - catalogue
 
@@ -61,6 +66,7 @@
   hosts: cart
   become: true
   gather_facts: false
+  tags: [cart]
   roles:
     - cart
 
@@ -68,6 +74,7 @@
   hosts: user
   become: true
   gather_facts: false
+  tags: [user]
   roles:
     - user
 
@@ -75,6 +82,7 @@
   hosts: shipping
   become: true
   gather_facts: false
+  tags: [shipping]
   roles:
     - shipping
 
@@ -82,6 +90,7 @@
   hosts: payment
   become: true
   gather_facts: false
+  tags: [payment]
   roles:
     - payment
 
@@ -89,6 +98,7 @@
   hosts: dispatch
   become: true
   gather_facts: false
+  tags: [dispatch]
   roles:
     - dispatch
 
@@ -97,5 +107,6 @@
   hosts: web
   become: true
   gather_facts: false
+  tags: [web]
   roles:
     - web
