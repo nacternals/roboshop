@@ -21,22 +21,13 @@ HOSTED_ZONE_ID="Z06046792KQ5HDP2YEDR4" # TODO: Route53 hosted zone ID for optimu
 DOMAIN_NAME="optimusprime.sbs"
 
 # Microservices list
-SERVICES=(mongodb.dev redis.dev mysql.dev rabbitmq.dev catalogue.dev cart.dev user.dev shipping.dev payment.dev dispatch.dev web.dev)
+SERVICES=(mongodb.dev)
 
 # Instance type mapping
 declare -A INSTANCE_TYPES
 INSTANCE_TYPES=(
 	[mongodb.dev]="t3.medium"
-	[redis.dev]="t3.medium"
-	[mysql.dev]="t3.medium"
-	[rabbitmq.dev]="t3.medium"
-	[shipping.dev]="t3.medium"
-	[catalogue.dev]="t2.micro"
-	[cart.dev]="t2.micro"
-	[user.dev]="t2.micro"
-	[payment.dev]="t2.micro"
-	[dispatch.dev]="t2.micro"
-	[web.dev]="t2.micro"
+
 )
 
 # Will hold instance IDs and IPs
