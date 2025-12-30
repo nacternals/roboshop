@@ -46,4 +46,4 @@
     tasks_from: package_installer.yml
 
 - name: Loading User Schema into MongoDB Database
-  ansible.builtin.shell: "mongo --host mongodb.optimusprime.sbs </app/schema/user.js"
+  ansible.builtin.shell: "mongo --host {{ mongo_host }} </app/schema/user.js"
