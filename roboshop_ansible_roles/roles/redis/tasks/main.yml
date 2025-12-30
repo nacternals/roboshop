@@ -10,11 +10,9 @@
 # Setting-up Redis Database (CentOS Stream 8 - use AppStream module)
 - name: Reset redis module
   ansible.builtin.command: dnf -y module reset redis
-  become: yes
 
 - name: Enable redis module stream
   ansible.builtin.command: dnf -y module enable redis:6
-  become: yes
 
 # Install Redis
 - name: Installing Redis Required Version
@@ -24,7 +22,6 @@
 
 # Configure first, then start service (important)
 - name: Configure Redis to listen on all interfaces
-  become: yes
   block:
     - name: Remove invalid Mongo-style bindIp if present
       ansible.builtin.lineinfile:
