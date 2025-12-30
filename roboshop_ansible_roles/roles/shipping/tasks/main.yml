@@ -46,6 +46,19 @@
 #Loading Shipping Schema into MySQL Database
 #MySQL Client has already been installed via package_installer.yml
 
-- name: Loading Shipping Schema into MySQL Database
-  ansible.builtin.shell: " mysql -h {{ mysql_host }} -uroot -pRoboShop@1 < /app/schema/shipping.sql "
+# - name: Loading Shipping Schema into MySQL Database
+#   ansible.builtin.shell: " mysql -h {{ mysql_host }} -uroot -pRoboShop@1 < /app/schema/shipping.sql "
+#   notify: Restart Shipping Service
+
+- name: Loading Shipping DB SQL files into MySQL
+  ansible.builtin.shell: >
+    mysql -h {{ mysql_host }} -uroot -pRoboShop@1 < {{ item }}
+  args:
+    chdir: /app/db
+    executable: /bin/bash
+  loop:
+    - schema.sql
+    - app-user.sql
+    - master-data.sql
+  no_log: true
   notify: Restart Shipping Service
