@@ -20,7 +20,7 @@
 
 #Setting-up Payment Application Dependencies
 - name: Installing Payment Application Dependencies
-  ansible.builtin.command: "pip3.6 install -r requirements.txt -y"
+  ansible.builtin.command: "pip3.6 install -r requirements.txt"
   args:
     chdir: /app
 
