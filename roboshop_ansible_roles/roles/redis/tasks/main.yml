@@ -7,11 +7,22 @@
     tasks_from: roboshop_basic_requirements.yml
 
 #Setting-up Redis Database
-- name: Installing Remi Repository
-  ansible.builtin.command: "dnf install https://rpms.remirepo.net/enterprise/remi-release-8.rpm -y"
+# - name: Installing Remi Repository
+#   ansible.builtin.command: "dnf install https://rpms.remirepo.net/enterprise/remi-release-8.rpm -y"
+- name: Reset redis module
+  ansible.builtin.command: dnf -y module reset redis
 
-- name: Enabling Redis 6.2 Module Stream from Remi Repo
-  ansible.builtin.command: "dnf module enable redis:remi-6.2 -y"
+- name: Enable redis module stream
+  ansible.builtin.command: dnf -y module enable redis:6
+
+# - name: install remi release
+#   ansible.builtin.dnf: # check pacakge will work not
+#     name: https://rpms.remirepo.net/enterprise/remi-release-8.rpm
+#     state: present
+#     disable_gpg_check: true
+
+# - name: Enabling Redis 6.2 Module Stream from Remi Repo
+#   ansible.builtin.command: "dnf module enable redis:remi-6.2 -y"
 
 - name: Installing Redis Required Version (6.2)
   ansible.builtin.import_role:
