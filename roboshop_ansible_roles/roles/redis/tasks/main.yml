@@ -34,9 +34,30 @@
     name: common
     tasks_from: enable_start_service.yml
 
-- name: Configuring Reddis to listen on all interfaces
-  ansible.builtin.lineinfile:
-    path: /etc/redis.conf
-    regexp: '^\s*bindIp:\s*'
-    line: "  bindIp: 0.0.0.0"
+# - name: Configuring Reddis to listen on all interfaces
+#   ansible.builtin.lineinfile:
+#     path: /etc/redis.conf
+#     regexp: '^\s*bindIp:\s*'
+#     line: "  bindIp: 0.0.0.0"
+#   notify: Restart redis
+
+- name: Configure Redis to listen on all interfaces
+  block:
+    - name: Remove invalid Mongo-style bindIp if present
+      ansible.builtin.lineinfile:
+        path: /etc/redis.conf
+        regexp: "^bindIp:"
+        state: absent
+
+    - name: Set Redis bind address
+      ansible.builtin.lineinfile:
+        path: /etc/redis.conf
+        regexp: '^bind\s+'
+        line: "bind 0.0.0.0"
+
+    - name: Disable Redis protected mode
+      ansible.builtin.lineinfile:
+        path: /etc/redis.conf
+        regexp: '^protected-mode\s+'
+        line: "protected-mode no"
   notify: Restart redis
