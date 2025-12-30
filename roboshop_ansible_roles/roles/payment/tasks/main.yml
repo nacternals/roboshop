@@ -26,7 +26,7 @@
 
 #Setting-up Payment systemd Service
 - name: Copying Payment Service File (payment.service.j2) as /etc/systemd/system/payment.service
-  ansible.builtin.copy:
+  ansible.builtin.template:
     src: payment.service.j2
     dest: /etc/systemd/system/payment.service
   notify: Reload systemd daemon
