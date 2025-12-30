@@ -30,7 +30,7 @@
     src: catalogue.service.j2
     dest: /etc/systemd/system/catalogue.service
     mode: "0644"
-  notify: Reload Daemon
+  notify: Reload systemd daemon
 
 - name: Run handlers now (reload systemd before starting service)
   ansible.builtin.meta: flush_handlers
