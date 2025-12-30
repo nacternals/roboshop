@@ -26,9 +26,9 @@
     - name: Remove invalid Mongo-style bindIp if present
       ansible.builtin.lineinfile:
         path: /etc/redis.conf
-        regexp: '^bindIp:'
+        regexp: '^\s*bindIp:'
         state: absent
-
+ 
     - name: Set Redis bind address
       ansible.builtin.lineinfile:
         path: /etc/redis.conf
