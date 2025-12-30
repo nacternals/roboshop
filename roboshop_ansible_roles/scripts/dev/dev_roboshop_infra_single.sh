@@ -21,12 +21,12 @@ HOSTED_ZONE_ID="Z06046792KQ5HDP2YEDR4" # TODO: Route53 hosted zone ID for optimu
 DOMAIN_NAME="optimusprime.sbs"
 
 # Microservices list
-SERVICES=(mongodb.dev)
+SERVICES=(redis.dev)
 
 # Instance type mapping
 declare -A INSTANCE_TYPES
 INSTANCE_TYPES=(
-	[mongodb.dev]="t3.medium"
+	[redis.dev]="t3.medium"
 
 )
 
