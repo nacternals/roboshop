@@ -31,7 +31,7 @@
 #Setting-up Shipping Microservice systemd Service
 - name: Copying Shipping Service File (shipping.service.j2) to /etc/systemd/system/shipping.service
   ansible.builtin.template:
-    path: shipping.service.j2
+    src: shipping.service.j2
     dest: /etc/systemd/system/shipping.service
   notify: Reload systemd daemon
 
