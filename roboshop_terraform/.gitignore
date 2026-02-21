@@ -1,5 +1,9 @@
-# Local .terraform directories
-**/.terraform/*
+##################################
+# Terraform core files
+##################################
+
+# Local .terraform directory
+.terraform/
 
 # Terraform state files
 *.tfstate
@@ -7,37 +11,55 @@
 
 # Crash log files
 crash.log
-crash.*.log
 
-# Terraform CLI config files
-.terraformrc
-terraform.rc
-
-# Override files (usually local-only)
+# Ignore override files
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
 
-# Variable files (often contain secrets)
-*.tfvars
-*.tfvars.json
+##################################
+# Terraform CLI config
+##################################
 
-# Plan files
+.terraformrc
+terraform.rc
+
+##################################
+# Terraform plan files
+##################################
+
 *.tfplan
-*.plan
+plan.out
+##################################
+# Sensitive variable files
+##################################
 
-# Sensitive output / logs
-*.log
+terraform.tfvars
+terraform.tfvars.json
+*.auto.tfvars
 
-# Editor/OS junk
+##################################
+# Backend config (if sensitive)
+##################################
+
+backend/*.backup
+
+##################################
+# OS / IDE files
+##################################
+
 .DS_Store
 Thumbs.db
 
-# IDE folders
-.vscode/
-.idea/
+##################################
+# VS Code
+##################################
 
-# If you store SSH keys locally (avoid committing)
-*.pem
-*.ppk
+.vscode/
+
+##################################
+# Logs
+##################################
+
+*.log
