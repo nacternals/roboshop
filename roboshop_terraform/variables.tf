@@ -16,3 +16,24 @@ variable "vpc_cidr" {
   type        = string
   description = "CIDR block for VPC"
 }
+
+variable "azs" {
+  type        = list(string)
+  description = "list of aws availability zones"
+}
+
+variable "public_subnet_cidrs" {
+  type = list(string)
+}
+
+variable "private_nginx_subnet_cidrs" {
+  type = list(string)
+}
+
+variable "private_app_subnet_cidrs" {
+  type = list(string)
+}
+
+variable "private_db_subnet_cidrs" {
+  type = list(string)
+}
