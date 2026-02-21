@@ -56,3 +56,18 @@ output "rt_db_ids" {
   value       = aws_route_table.rt_db[*].id
 }
 
+output "sg_ids" {
+  value = {
+    bastion      = aws_security_group.bastion.id
+    alb_public   = aws_security_group.alb_public.id
+    nginx        = aws_security_group.nginx.id
+    alb_internal = aws_security_group.alb_internal.id
+    app          = aws_security_group.app.id
+    mongodb      = aws_security_group.mongodb.id
+    mysql        = aws_security_group.mysql.id
+    redis        = aws_security_group.redis.id
+    rabbitmq     = aws_security_group.rabbitmq.id
+  }
+}
+
+

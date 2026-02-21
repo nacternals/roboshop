@@ -180,3 +180,329 @@ resource "aws_route_table_association" "db_assoc" {
   route_table_id = aws_route_table.rt_db[count.index].id
 }
 
+resource "aws_security_group" "bastion" {
+  name        = "${local.name_prefix}-sg-bastion"
+  description = "Bastion SSH access"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description = "SSH from my IP"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.my_ip_cidr]
+  }
+
+  egress {
+    description = "All outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "${local.name_prefix}-sg-bastion"
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
+resource "aws_security_group" "alb_public" {
+  name        = "${local.name_prefix}-sg-alb-public"
+  description = "Public ALB access from internet"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description = "HTTP from internet"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTPS from internet"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "All outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "${local.name_prefix}-sg-alb-public"
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
+resource "aws_security_group" "nginx" {
+  name        = "${local.name_prefix}-sg-nginx"
+  description = "Nginx instances"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description     = "HTTP from public ALB"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb_public.id]
+  }
+
+  ingress {
+    description     = "HTTPS from public ALB"
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb_public.id]
+  }
+
+  ingress {
+    description     = "SSH from bastion"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion.id]
+  }
+
+  egress {
+    description = "All outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "${local.name_prefix}-sg-nginx"
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
+resource "aws_security_group" "alb_internal" {
+  name        = "${local.name_prefix}-sg-alb-internal"
+  description = "Internal ALB access from nginx"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description     = "HTTP from nginx"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.nginx.id]
+  }
+
+  egress {
+    description = "All outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "${local.name_prefix}-sg-alb-internal"
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
+
+
+resource "aws_security_group" "app" {
+  name        = "${local.name_prefix}-sg-app"
+  description = "App tier microservices"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description     = "App traffic from internal ALB"
+    from_port       = var.app_port
+    to_port         = var.app_port
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb_internal.id]
+  }
+
+  ingress {
+    description     = "SSH from bastion"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion.id]
+  }
+
+  egress {
+    description = "All outbound"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "${local.name_prefix}-sg-app"
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
+resource "aws_security_group" "mongodb" {
+  name        = "${local.name_prefix}-sg-mongodb"
+  description = "MongoDB"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description     = "MongoDB from app"
+    from_port       = 27017
+    to_port         = 27017
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+  }
+
+  ingress {
+    description     = "SSH from bastion"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion.id]
+  }
+
+  egress {
+    description = "All outbound (optional)"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "${local.name_prefix}-sg-mongodb"
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
+resource "aws_security_group" "mysql" {
+  name        = "${local.name_prefix}-sg-mysql"
+  description = "MySQL"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description     = "MySQL from app"
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+  }
+
+  ingress {
+    description     = "SSH from bastion"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion.id]
+  }
+
+  egress {
+    description = "All outbound (optional)"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "${local.name_prefix}-sg-mysql"
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
+resource "aws_security_group" "redis" {
+  name        = "${local.name_prefix}-sg-redis"
+  description = "Redis"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description     = "Redis from app"
+    from_port       = 6379
+    to_port         = 6379
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+  }
+
+  ingress {
+    description     = "SSH from bastion"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion.id]
+  }
+
+  egress {
+    description = "All outbound (optional)"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "${local.name_prefix}-sg-redis"
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
+resource "aws_security_group" "rabbitmq" {
+  name        = "${local.name_prefix}-sg-rabbitmq"
+  description = "RabbitMQ"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    description     = "AMQP from app"
+    from_port       = 5672
+    to_port         = 5672
+    protocol        = "tcp"
+    security_groups = [aws_security_group.app.id]
+  }
+
+  ingress {
+    description     = "RabbitMQ UI from bastion (optional)"
+    from_port       = 15672
+    to_port         = 15672
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion.id]
+  }
+
+  ingress {
+    description     = "SSH from bastion"
+    from_port       = 22
+    to_port         = 22
+    protocol        = "tcp"
+    security_groups = [aws_security_group.bastion.id]
+  }
+
+  egress {
+    description = "All outbound (optional)"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "${local.name_prefix}-sg-rabbitmq"
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
