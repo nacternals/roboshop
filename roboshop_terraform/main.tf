@@ -861,3 +861,49 @@ resource "aws_instance" "rabbitmq" {
   }
 }
 
+
+resource "aws_route53_zone" "dev_private" {
+  name = "dev.optimusprime.uno"
+
+  vpc {
+    vpc_id = aws_vpc.this.id
+  }
+
+  comment = "Private DNS for RoboShop dev"
+  tags = {
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
+resource "aws_route53_record" "mongodb" {
+  zone_id = aws_route53_zone.dev_private.zone_id
+  name    = "mongodb"
+  type    = "A"
+  ttl     = 10
+  records = [aws_instance.mongodb.private_ip]
+}
+
+resource "aws_route53_record" "mysql" {
+  zone_id = aws_route53_zone.dev_private.zone_id
+  name    = "mysql"
+  type    = "A"
+  ttl     = 10
+  records = [aws_instance.mysql.private_ip]
+}
+
+resource "aws_route53_record" "redis" {
+  zone_id = aws_route53_zone.dev_private.zone_id
+  name    = "redis"
+  type    = "A"
+  ttl     = 10
+  records = [aws_instance.redis.private_ip]
+}
+
+resource "aws_route53_record" "rabbitmq" {
+  zone_id = aws_route53_zone.dev_private.zone_id
+  name    = "rabbitmq"
+  type    = "A"
+  ttl     = 10
+  records = [aws_instance.rabbitmq.private_ip]
+}

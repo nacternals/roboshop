@@ -134,3 +134,36 @@ output "rabbitmq" {
     iam_role_name     = aws_iam_role.roboshop_ec2_role.name
   }
 }
+
+
+############################
+# Route53 - Private DNS
+############################
+
+output "route53_private_dns" {
+  description = "Private Hosted Zone and DB DNS Records"
+  value = {
+    zone_name    = aws_route53_zone.dev_private.name
+    zone_id      = aws_route53_zone.dev_private.zone_id
+
+    mongodb = {
+      fqdn       = aws_route53_record.mongodb.fqdn
+      private_ip = aws_instance.mongodb.private_ip
+    }
+
+    mysql = {
+      fqdn       = aws_route53_record.mysql.fqdn
+      private_ip = aws_instance.mysql.private_ip
+    }
+
+    redis = {
+      fqdn       = aws_route53_record.redis.fqdn
+      private_ip = aws_instance.redis.private_ip
+    }
+
+    rabbitmq = {
+      fqdn       = aws_route53_record.rabbitmq.fqdn
+      private_ip = aws_instance.rabbitmq.private_ip
+    }
+  }
+}
