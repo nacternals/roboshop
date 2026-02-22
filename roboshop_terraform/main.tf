@@ -907,3 +907,242 @@ resource "aws_route53_record" "rabbitmq" {
   ttl     = 10
   records = [aws_instance.rabbitmq.private_ip]
 }
+
+############################
+# App Tier - Internal ALB
+############################
+
+resource "aws_lb" "alb_internal_app" {
+  name               = "${local.name_prefix}-alb-internal-app"
+  load_balancer_type = "application"
+  internal           = true
+
+  subnets         = aws_subnet.private_app[*].id
+  security_groups = [aws_security_group.alb_internal.id]
+
+  enable_deletion_protection = false
+
+  tags = {
+    Name        = "${local.name_prefix}-alb-internal-app"
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
+resource "aws_lb_listener" "alb_internal_http" {
+  load_balancer_arn = aws_lb.alb_internal_app.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "Not Found"
+      status_code  = "404"
+    }
+  }
+
+  tags = {
+    Name        = "${local.name_prefix}-alb-internal-http"
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
+############################
+# Target Groups per Service
+############################
+
+resource "aws_lb_target_group" "app_tg" {
+  for_each = toset(var.app_services)
+
+  name        = substr("${local.name_prefix}-tg-${each.key}", 0, 32)
+  port        = var.app_port
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.this.id
+  target_type = "instance"
+
+  health_check {
+    enabled             = true
+    path                = var.app_health_check_path
+    protocol            = "HTTP"
+    matcher             = "200-399"
+    interval            = 30
+    timeout             = 10
+    healthy_threshold   = 3
+    unhealthy_threshold = 10
+  }
+
+  tags = {
+    Name        = "${local.name_prefix}-tg-${each.key}"
+    Project     = var.project
+    Environment = var.environment
+    Tier        = "app"
+    Service     = each.key
+  }
+}
+
+############################
+# Listener Rules (Path Based)
+############################
+
+resource "aws_lb_listener_rule" "app_rules" {
+  for_each = toset(var.app_services)
+
+  listener_arn = aws_lb_listener.alb_internal_http.arn
+  priority     = 100 + index(var.app_services, each.key)
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.app_tg[each.key].arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/${each.key}/*"]
+    }
+  }
+
+  tags = {
+    Name        = "${local.name_prefix}-rule-${each.key}"
+    Project     = var.project
+    Environment = var.environment
+    Service     = each.key
+  }
+}
+
+############################
+# Launch Template per Service
+############################
+
+resource "aws_launch_template" "app_lt" {
+  for_each = toset(var.app_services)
+
+  name_prefix   = "${local.name_prefix}-lt-${each.key}-"
+  image_id      = var.app_tier_ami_id
+  instance_type = lookup(var.app_instance_type_by_service, each.key, "t2.micro")
+
+  # Optional key pair (recommended for break-glass)
+  key_name = var.app_tier_key_name
+
+  vpc_security_group_ids = [aws_security_group.app.id]
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.roboshop_ec2_profile.name
+  }
+
+  # IMPORTANT: do not attach subnet here; ASG decides subnets
+
+  user_data = base64encode(<<-EOF
+    #!/bin/bash
+    set -e
+
+    # Create ansadmin (for Ansible)
+    useradd ansadmin || true
+    mkdir -p /home/ansadmin/.ssh
+    chmod 700 /home/ansadmin/.ssh
+
+    cat <<'KEYEOF' > /home/ansadmin/.ssh/authorized_keys
+    ${var.app_tier_ansadmin_public_key}
+    KEYEOF
+
+    chmod 600 /home/ansadmin/.ssh/authorized_keys
+    chown -R ansadmin:ansadmin /home/ansadmin/.ssh
+
+    echo "ansadmin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ansadmin
+    chmod 440 /etc/sudoers.d/ansadmin
+
+    # (Optional) tag marker file
+    echo "${each.key}" > /etc/roboshop_component
+  EOF
+  )
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name        = "${local.name_prefix}-${each.key}"
+      Project     = var.project
+      Environment = var.environment
+      Tier        = "app"
+      Component   = each.key
+    }
+  }
+
+  tag_specifications {
+    resource_type = "volume"
+    tags = {
+      Project     = var.project
+      Environment = var.environment
+      Tier        = "app"
+      Component   = each.key
+    }
+  }
+
+  tags = {
+    Name        = "${local.name_prefix}-lt-${each.key}"
+    Project     = var.project
+    Environment = var.environment
+    Tier        = "app"
+    Component   = each.key
+  }
+}
+
+############################
+# Auto Scaling Group per Service
+############################
+
+resource "aws_autoscaling_group" "app_asg" {
+  for_each = toset(var.app_services)
+
+  name                      = "${local.name_prefix}-asg-${each.key}"
+  min_size                  = lookup(var.app_asg_min_by_service, each.key, 1)
+  desired_capacity          = lookup(var.app_asg_desired_by_service, each.key, 1)
+  max_size                  = lookup(var.app_asg_max_by_service, each.key, 4)
+  health_check_type         = "EC2"
+  health_check_grace_period = 900
+
+  vpc_zone_identifier = aws_subnet.private_app[*].id
+
+  target_group_arns = [
+    aws_lb_target_group.app_tg[each.key].arn
+  ]
+
+  launch_template {
+    id      = aws_launch_template.app_lt[each.key].id
+    version = "$Latest"
+  }
+
+  # Make sure instances replace safely
+  termination_policies = ["OldestInstance"]
+
+  tag {
+    key                 = "Project"
+    value               = var.project
+    propagate_at_launch = true
+  }
+
+  tag {
+    key                 = "Environment"
+    value               = var.environment
+    propagate_at_launch = true
+  }
+
+  tag {
+    key                 = "Tier"
+    value               = "app"
+    propagate_at_launch = true
+  }
+
+  tag {
+    key                 = "Component"
+    value               = each.key
+    propagate_at_launch = true
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "${local.name_prefix}-${each.key}"
+    propagate_at_launch = true
+  }
+}

@@ -20,3 +20,48 @@ db_tier_instance_type       = "t2.medium"
 db_tier_ami_id              = "ami-0b4f379183e5706b9"
 db_tier_ec2_key_name        = "roboshop-dev-keypair"
 db_tier_ansadmin_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE4S8UnvKKywLFjmtSI78+J71l/svBQtVsqt//iFnygC ansadmin@ip-10-10-1-125.ec2.internal"
+
+#############################
+#App Tier Variables
+#############################
+app_tier_ami_id              = "ami-0b4f379183e5706b9"
+app_tier_key_name            = "roboshop-dev-keypair"
+app_tier_ansadmin_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE4S8UnvKKywLFjmtSI78+J71l/svBQtVsqt//iFnygC ansadmin@ip-10-10-1-125.ec2.internal"
+app_services                 = ["catalogue", "user", "cart", "shipping", "payment", "dispatch"]
+app_instance_type_by_service = {
+  catalogue = "t2.micro"
+  user      = "t2.micro"
+  cart      = "t2.micro"
+  shipping  = "t2.medium"
+  payment   = "t2.micro"
+  dispatch  = "t2.micro"
+}
+app_asg_min_by_service = {
+  catalogue = 2
+  user      = 2
+  cart      = 2
+  shipping  = 2
+  payment   = 2
+  dispatch  = 2
+}
+
+app_asg_desired_by_service = {
+  catalogue = 2
+  user      = 2
+  cart      = 2
+  shipping  = 2
+  payment   = 2
+  dispatch  = 2
+}
+
+app_asg_max_by_service = {
+  catalogue = 4
+  user      = 4
+  cart      = 4
+  shipping  = 4
+  payment   = 4
+  dispatch  = 4
+}
+
+
+app_health_check_path = "/health"

@@ -88,3 +88,53 @@ variable "db_tier_ansadmin_public_key" {
   type        = string
   description = "roboshop dev environment bastion ansadmin public key"
 }
+
+
+############################
+#App Tier Variables
+############################
+variable "app_tier_ami_id" {
+  type        = string
+  description = "AMI ID for app tier microservices (golden AMI preferred)"
+}
+
+variable "app_tier_key_name" {
+  type        = string
+  description = "Existing AWS EC2 key pair name (optional, but helpful for break-glass access)"
+}
+
+variable "app_tier_ansadmin_public_key" {
+  type        = string
+  description = "ansadmin public key to inject into app tier instances"
+}
+
+variable "app_services" {
+  type        = list(string)
+  description = "Microservices in app tier"
+}
+
+variable "app_instance_type_by_service" {
+  type        = map(string)
+  description = "Instance type per service"
+}
+
+variable "app_asg_min_by_service" {
+  type        = map(number)
+  description = "ASG min per service"
+}
+
+variable "app_asg_desired_by_service" {
+  type        = map(number)
+  description = "ASG desired per service"
+}
+
+variable "app_asg_max_by_service" {
+  type        = map(number)
+  description = "ASG max per service"
+}
+
+variable "app_health_check_path" {
+  type        = string
+  description = "Health check path for app services"
+
+}

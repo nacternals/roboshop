@@ -143,8 +143,8 @@ output "rabbitmq" {
 output "route53_private_dns" {
   description = "Private Hosted Zone and DB DNS Records"
   value = {
-    zone_name    = aws_route53_zone.dev_private.name
-    zone_id      = aws_route53_zone.dev_private.zone_id
+    zone_name = aws_route53_zone.dev_private.name
+    zone_id   = aws_route53_zone.dev_private.zone_id
 
     mongodb = {
       fqdn       = aws_route53_record.mongodb.fqdn
@@ -166,4 +166,25 @@ output "route53_private_dns" {
       private_ip = aws_instance.rabbitmq.private_ip
     }
   }
+}
+
+############################
+# App Tier Outputs
+############################
+
+output "app_internal_alb" {
+  value = {
+    alb_arn      = aws_lb.alb_internal_app.arn
+    alb_dns_name = aws_lb.alb_internal_app.dns_name
+    alb_zone_id  = aws_lb.alb_internal_app.zone_id
+    listener_arn = aws_lb_listener.alb_internal_http.arn
+  }
+}
+
+output "app_target_groups" {
+  value = { for k, v in aws_lb_target_group.app_tg : k => v.arn }
+}
+
+output "app_asgs" {
+  value = { for k, v in aws_autoscaling_group.app_asg : k => v.name }
 }
