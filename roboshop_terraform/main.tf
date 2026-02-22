@@ -190,7 +190,7 @@ resource "aws_security_group" "bastion" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.my_ip_cidr]
+    cidr_blocks = var.my_ip_cidr
   }
 
   egress {
@@ -503,6 +503,361 @@ resource "aws_security_group" "rabbitmq" {
     Name        = "${local.name_prefix}-sg-rabbitmq"
     Project     = var.project
     Environment = var.environment
+  }
+}
+
+############################
+# IAM Role for EC2 (Ansible Controller/Bastion)
+############################
+
+resource "aws_iam_role" "roboshop_ec2_role" {
+  name = "Roboshop_EC2_Role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+
+  tags = {
+    Name        = "Roboshop_EC2_Role"
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
+# Instance profile (attach this to the EC2 instance that runs ansible)
+resource "aws_iam_instance_profile" "roboshop_ec2_profile" {
+  name = "Roboshop_EC2_Profile"
+  role = aws_iam_role.roboshop_ec2_role.name
+}
+
+############################
+# Policy: Inventory Read + Create EC2
+############################
+
+resource "aws_iam_policy" "roboshop_ec2_ansible_policy" {
+  name        = "Roboshop_EC2_AnsibleInventory_CreateEC2"
+  description = "Allows Ansible dynamic inventory (Describe) and EC2 instance creation."
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      # --- Dynamic inventory permissions (read-only) ---
+      {
+        Sid    = "InventoryReadOnly"
+        Effect = "Allow"
+        Action = [
+          "ec2:DescribeInstances",
+          "ec2:DescribeInstanceStatus",
+          "ec2:DescribeTags",
+          "ec2:DescribeImages",
+          "ec2:DescribeVpcs",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeRouteTables",
+          "ec2:DescribeAvailabilityZones",
+          "ec2:DescribeKeyPairs"
+        ]
+        Resource = "*"
+      },
+
+      # --- Create/Manage EC2 instances ---
+      {
+        Sid    = "CreateAndTagInstances"
+        Effect = "Allow"
+        Action = [
+          "ec2:RunInstances",
+          "ec2:CreateTags",
+          "ec2:DeleteTags"
+        ]
+        Resource = "*"
+      },
+
+      # Optional but commonly needed when running instances (depends on how you launch)
+      {
+        Sid    = "OptionalLifecycle"
+        Effect = "Allow"
+        Action = [
+          "ec2:TerminateInstances",
+          "ec2:StopInstances",
+          "ec2:StartInstances"
+        ]
+        Resource = "*"
+      },
+
+      # If the instance you launch needs an IAM role/profile, you must allow PassRole.
+      # Tighten Resource to specific roles later (recommended).
+      {
+        Sid    = "AllowPassRole"
+        Effect = "Allow"
+        Action = [
+          "iam:PassRole"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "attach_roboshop_policy" {
+  role       = aws_iam_role.roboshop_ec2_role.name
+  policy_arn = aws_iam_policy.roboshop_ec2_ansible_policy.arn
+}
+
+
+
+resource "aws_instance" "bastionHost" {
+  ami                         = var.dev_bastion_ami_id
+  instance_type               = var.dev_bastion_instance_type
+  subnet_id                   = aws_subnet.public[0].id
+  vpc_security_group_ids      = [aws_security_group.bastion.id]
+  associate_public_ip_address = true
+  key_name                    = var.dev_bastion_key_name
+
+  iam_instance_profile = aws_iam_instance_profile.roboshop_ec2_profile.name
+
+  user_data = <<-EOF
+              #!/bin/bash
+              set -e
+
+              echo "===== Bastion Bootstrap Started ====="
+
+              # Update system
+              dnf update -y
+
+              # Install base tools
+              dnf install -y git unzip tree
+
+              # Install Ansible + AWS SDK
+              dnf install -y ansible-core python3-boto3 python3-botocore
+
+              # Install AWS CLI (optional but useful)
+              dnf install -y awscli
+
+              # Install AWS collections
+              mkdir -p /usr/share/ansible/collections
+              ansible-galaxy collection install amazon.aws:6.5.0 community.aws \
+                -p /usr/share/ansible/collections
+
+              # Create ansadmin user if not exists
+              id ansadmin &>/dev/null || useradd ansadmin
+
+              mkdir -p /home/ansadmin/.ssh
+              chown -R ansadmin:ansadmin /home/ansadmin/.ssh
+              chmod 700 /home/ansadmin/.ssh
+
+              # Generate SSH key (only if not exists)
+              if [ ! -f /home/ansadmin/.ssh/id_ed25519 ]; then
+                sudo -u ansadmin ssh-keygen -t ed25519 -N "" \
+                  -f /home/ansadmin/.ssh/id_ed25519
+              fi
+
+              chmod 600 /home/ansadmin/.ssh/id_ed25519
+              chmod 644 /home/ansadmin/.ssh/id_ed25519.pub
+              chown ansadmin:ansadmin /home/ansadmin/.ssh/id_ed25519*
+
+              echo "===== Bastion Bootstrap Completed ====="
+              EOF
+
+  tags = {
+    Name        = "${var.project}-${var.environment}-bastionHost"
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
+resource "aws_instance" "mongodb" {
+  ami           = var.db_tier_ami_id
+  instance_type = var.db_tier_instance_type
+  key_name      = var.db_tier_ec2_key_name
+
+  subnet_id              = aws_subnet.private_db[0].id
+  vpc_security_group_ids = [aws_security_group.mongodb.id]
+
+  # Private subnet + explicitly disable public IP
+  associate_public_ip_address = false
+
+  iam_instance_profile = aws_iam_instance_profile.roboshop_ec2_profile.name
+
+  root_block_device {
+    volume_size = 10
+    volume_type = "gp2"
+  }
+
+  user_data = <<-EOF
+              #!/bin/bash
+              set -e
+
+              # Create ansadmin (for Ansible)
+              useradd ansadmin || true
+              mkdir -p /home/ansadmin/.ssh
+              chmod 700 /home/ansadmin/.ssh
+
+              cat <<'KEYEOF' > /home/ansadmin/.ssh/authorized_keys
+              ${var.db_tier_ansadmin_public_key}
+              KEYEOF
+
+              chmod 600 /home/ansadmin/.ssh/authorized_keys
+              chown -R ansadmin:ansadmin /home/ansadmin/.ssh
+
+              echo "ansadmin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ansadmin
+              chmod 440 /etc/sudoers.d/ansadmin
+              EOF
+
+  tags = {
+    Name        = "mongodb"
+    Project     = "roboshop"
+    Environment = "dev"
+    Tier        = "db"
+    Component   = "mongodb"
+  }
+}
+
+resource "aws_instance" "mysql" {
+  ami           = var.db_tier_ami_id
+  instance_type = var.db_tier_instance_type
+  key_name      = var.db_tier_ec2_key_name
+
+  subnet_id              = aws_subnet.private_db[0].id
+  vpc_security_group_ids = [aws_security_group.mysql.id]
+
+  # Private subnet + explicitly disable public IP
+  associate_public_ip_address = false
+
+  iam_instance_profile = aws_iam_instance_profile.roboshop_ec2_profile.name
+
+  root_block_device {
+    volume_size = 10
+    volume_type = "gp2"
+  }
+
+  user_data = <<-EOF
+              #!/bin/bash
+              set -e
+
+              # Create ansadmin (for Ansible)
+              useradd ansadmin || true
+              mkdir -p /home/ansadmin/.ssh
+              chmod 700 /home/ansadmin/.ssh
+
+              cat <<'KEYEOF' > /home/ansadmin/.ssh/authorized_keys
+              ${var.db_tier_ansadmin_public_key}
+              KEYEOF
+
+              chmod 600 /home/ansadmin/.ssh/authorized_keys
+              chown -R ansadmin:ansadmin /home/ansadmin/.ssh
+
+              echo "ansadmin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ansadmin
+              chmod 440 /etc/sudoers.d/ansadmin
+              EOF
+
+  tags = {
+    Name        = "mysql"
+    Project     = "roboshop"
+    Environment = "dev"
+    Tier        = "db"
+    Component   = "mysql"
+  }
+}
+
+resource "aws_instance" "redis" {
+  ami           = var.db_tier_ami_id
+  instance_type = var.db_tier_instance_type
+  key_name      = var.db_tier_ec2_key_name
+
+  subnet_id              = aws_subnet.private_db[1].id
+  vpc_security_group_ids = [aws_security_group.redis.id]
+
+  # Private subnet + explicitly disable public IP
+  associate_public_ip_address = false
+
+  iam_instance_profile = aws_iam_instance_profile.roboshop_ec2_profile.name
+
+  root_block_device {
+    volume_size = 10
+    volume_type = "gp2"
+  }
+
+  user_data = <<-EOF
+              #!/bin/bash
+              set -e
+
+              # Create ansadmin (for Ansible)
+              useradd ansadmin || true
+              mkdir -p /home/ansadmin/.ssh
+              chmod 700 /home/ansadmin/.ssh
+
+              cat <<'KEYEOF' > /home/ansadmin/.ssh/authorized_keys
+              ${var.db_tier_ansadmin_public_key}
+              KEYEOF
+
+              chmod 600 /home/ansadmin/.ssh/authorized_keys
+              chown -R ansadmin:ansadmin /home/ansadmin/.ssh
+
+              echo "ansadmin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ansadmin
+              chmod 440 /etc/sudoers.d/ansadmin
+              EOF
+
+  tags = {
+    Name        = "redis"
+    Project     = "roboshop"
+    Environment = "dev"
+    Tier        = "db"
+    Component   = "redis"
+  }
+}
+
+
+resource "aws_instance" "rabbitmq" {
+  ami           = var.db_tier_ami_id
+  instance_type = var.db_tier_instance_type
+  key_name      = var.db_tier_ec2_key_name
+
+  subnet_id              = aws_subnet.private_db[1].id
+  vpc_security_group_ids = [aws_security_group.rabbitmq.id]
+
+  # Private subnet + explicitly disable public IP
+  associate_public_ip_address = false
+
+  iam_instance_profile = aws_iam_instance_profile.roboshop_ec2_profile.name
+
+  root_block_device {
+    volume_size = 10
+    volume_type = "gp2"
+  }
+
+  user_data = <<-EOF
+              #!/bin/bash
+              set -e
+
+              # Create ansadmin (for Ansible)
+              useradd ansadmin || true
+              mkdir -p /home/ansadmin/.ssh
+              chmod 700 /home/ansadmin/.ssh
+
+              cat <<'KEYEOF' > /home/ansadmin/.ssh/authorized_keys
+              ${var.db_tier_ansadmin_public_key}
+              KEYEOF
+
+              chmod 600 /home/ansadmin/.ssh/authorized_keys
+              chown -R ansadmin:ansadmin /home/ansadmin/.ssh
+
+              echo "ansadmin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ansadmin
+              chmod 440 /etc/sudoers.d/ansadmin
+              EOF
+
+  tags = {
+    Name        = "rabbitmq"
+    Project     = "roboshop"
+    Environment = "dev"
+    Tier        = "db"
+    Component   = "rabbitmq"
   }
 }
 
