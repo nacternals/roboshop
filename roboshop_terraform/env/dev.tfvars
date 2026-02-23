@@ -24,10 +24,17 @@ db_tier_ansadmin_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE4S8UnvKKywL
 #############################
 #App Tier Variables
 #############################
-app_tier_ami_id              = "ami-0b4f379183e5706b9"
 app_tier_key_name            = "roboshop-dev-keypair"
 app_tier_ansadmin_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE4S8UnvKKywLFjmtSI78+J71l/svBQtVsqt//iFnygC ansadmin@ip-10-10-1-125.ec2.internal"
 app_services                 = ["catalogue", "user", "cart", "shipping", "payment", "dispatch"]
+app_tier_ami_id = {
+  catalogue = "ami-0aaada2245ad56758"
+  user      = "ami-0d5fba9d94042768c"
+  cart      = "ami-07b06d1f087cc2ae6"
+  shipping  = "ami-0b7dc5ccdd08997c1"
+  payment   = "ami-0d9feaa8e55374d0e"
+  dispatch  = "ami-09dbca5ae39ab3e2f"
+}
 app_instance_type_by_service = {
   catalogue = "t2.micro"
   user      = "t2.micro"
@@ -65,3 +72,19 @@ app_asg_max_by_service = {
 
 
 app_health_check_path = "/health"
+
+
+#######################
+#Nginx Details
+######################
+nginx_ami_id              = "ami-0b4f379183e5706b9"
+nginx_instance_type       = "t2.micro"
+nginx_root_volume_size    = 10
+public_zone_name          = "optimusprime.uno"
+public_record_name        = "web.dev.optimusprime.uno"
+nginx_ansadmin_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIE4S8UnvKKywLFjmtSI78+J71l/svBQtVsqt//iFnygC ansadmin@ip-10-10-1-125.ec2.internal"
+
+
+
+
+public_tls_domain = "*.dev.optimusprime.uno"

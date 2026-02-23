@@ -1,3 +1,6 @@
+
+
+
 resource "aws_vpc" "this" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
@@ -968,10 +971,10 @@ resource "aws_lb_target_group" "app_tg" {
     path                = var.app_health_check_path
     protocol            = "HTTP"
     matcher             = "200-399"
-    interval            = 30
-    timeout             = 10
+    interval            = 15
+    timeout             = 5
     healthy_threshold   = 3
-    unhealthy_threshold = 10
+    unhealthy_threshold = 3
   }
 
   tags = {
@@ -1000,7 +1003,11 @@ resource "aws_lb_listener_rule" "app_rules" {
 
   condition {
     path_pattern {
-      values = ["/api/${each.key}/*"]
+      values = [
+        "/api/${each.key}",
+        "/api/${each.key}/",
+        "/api/${each.key}/*"
+      ]
     }
   }
 
@@ -1020,7 +1027,7 @@ resource "aws_launch_template" "app_lt" {
   for_each = toset(var.app_services)
 
   name_prefix   = "${local.name_prefix}-lt-${each.key}-"
-  image_id      = var.app_tier_ami_id
+  image_id      = var.app_tier_ami_id[each.key]
   instance_type = lookup(var.app_instance_type_by_service, each.key, "t2.micro")
 
   # Optional key pair (recommended for break-glass)
@@ -1096,11 +1103,11 @@ resource "aws_autoscaling_group" "app_asg" {
   for_each = toset(var.app_services)
 
   name                      = "${local.name_prefix}-asg-${each.key}"
-  min_size                  = lookup(var.app_asg_min_by_service, each.key, 1)
-  desired_capacity          = lookup(var.app_asg_desired_by_service, each.key, 1)
+  min_size                  = lookup(var.app_asg_min_by_service, each.key, 2)
+  desired_capacity          = lookup(var.app_asg_desired_by_service, each.key, 2)
   max_size                  = lookup(var.app_asg_max_by_service, each.key, 4)
-  health_check_type         = "EC2"
-  health_check_grace_period = 900
+  health_check_type         = "ELB"
+  health_check_grace_period = 300
 
   vpc_zone_identifier = aws_subnet.private_app[*].id
 
@@ -1113,8 +1120,22 @@ resource "aws_autoscaling_group" "app_asg" {
     version = "$Latest"
   }
 
-  # Make sure instances replace safely
   termination_policies = ["OldestInstance"]
+
+  instance_refresh {
+    strategy = "Rolling"
+
+    preferences {
+      min_healthy_percentage = 50
+      instance_warmup        = 300
+    }
+
+    triggers = ["launch_template"]
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 
   tag {
     key                 = "Project"
@@ -1145,4 +1166,308 @@ resource "aws_autoscaling_group" "app_asg" {
     value               = "${local.name_prefix}-${each.key}"
     propagate_at_launch = true
   }
+}
+
+resource "aws_autoscaling_policy" "app_cpu_target_75" {
+  for_each = toset(var.app_services)
+
+  name                   = "${local.name_prefix}-cpu75-${each.key}"
+  autoscaling_group_name = aws_autoscaling_group.app_asg[each.key].name
+  policy_type            = "TargetTrackingScaling"
+
+  # How long to wait after scaling before considering another scaling action
+  estimated_instance_warmup = 300
+
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+
+    # Your requirement: 75%
+    target_value = 75
+
+    # allow scale-in also (recommended)
+    disable_scale_in = false
+  }
+}
+
+
+############################
+# Public ALB (Internet-facing) for Nginx
+############################
+
+resource "aws_lb" "alb_public_web" {
+  name               = substr("${local.name_prefix}-alb-public-web", 0, 32)
+  load_balancer_type = "application"
+  internal           = false
+
+  subnets         = aws_subnet.public[*].id
+  security_groups = [aws_security_group.alb_public.id]
+
+  enable_deletion_protection = false
+
+  tags = {
+    Name        = "${local.name_prefix}-alb-public-web"
+    Project     = var.project
+    Environment = var.environment
+  }
+}
+
+resource "aws_lb_target_group" "nginx_tg" {
+  name        = substr("${local.name_prefix}-tg-nginx", 0, 32)
+  port        = 80
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.this.id
+  target_type = "instance"
+
+  health_check {
+    enabled             = true
+    path                = "/health"
+    protocol            = "HTTP"
+    matcher             = "200-399"
+    interval            = 15
+    timeout             = 5
+    healthy_threshold   = 3
+    unhealthy_threshold = 3
+  }
+
+  tags = {
+    Name        = "${local.name_prefix}-tg-nginx"
+    Project     = var.project
+    Environment = var.environment
+    Component   = "nginx"
+  }
+}
+
+############################
+# Public ALB Listeners
+# 80 -> Redirect to 443
+# 443 -> Forward to Nginx TG
+############################
+
+resource "aws_lb_listener" "alb_public_http" {
+  load_balancer_arn = aws_lb.alb_public_web.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+resource "aws_lb_listener" "alb_public_https" {
+  load_balancer_arn = aws_lb.alb_public_web.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06" # good modern policy
+  certificate_arn   = aws_acm_certificate_validation.public.certificate_arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.nginx_tg.arn
+  }
+}
+
+############################
+# Nginx Launch Template
+############################
+
+resource "aws_launch_template" "nginx_lt" {
+  name_prefix   = "${local.name_prefix}-lt-nginx-"
+  image_id      = var.nginx_ami_id
+  instance_type = var.nginx_instance_type
+  key_name      = var.app_tier_key_name # reuse your existing keypair variable
+
+  vpc_security_group_ids = [aws_security_group.nginx.id]
+
+  iam_instance_profile {
+    name = aws_iam_instance_profile.roboshop_ec2_profile.name
+  }
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+
+    ebs {
+      volume_size           = var.nginx_root_volume_size
+      volume_type           = "gp2"
+      delete_on_termination = true
+    }
+  }
+
+  user_data = base64encode(<<-EOF
+    #!/bin/bash
+    set -e
+
+    # --- ansadmin for Ansible ---
+    id ansadmin &>/dev/null || useradd -m -s /bin/bash ansadmin
+    mkdir -p /home/ansadmin/.ssh
+    chmod 700 /home/ansadmin/.ssh
+
+    cat <<'KEYEOF' > /home/ansadmin/.ssh/authorized_keys
+    ${var.nginx_ansadmin_public_key}
+    KEYEOF
+
+    chmod 600 /home/ansadmin/.ssh/authorized_keys
+    chown -R ansadmin:ansadmin /home/ansadmin/.ssh
+
+    echo "ansadmin ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ansadmin
+    chmod 440 /etc/sudoers.d/ansadmin
+
+
+  EOF
+  )
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name        = "nginx"
+      Project     = var.project
+      Environment = var.environment
+      Tier        = "web"
+      Component   = "nginx"
+    }
+  }
+
+  tag_specifications {
+    resource_type = "volume"
+    tags = {
+      Project     = var.project
+      Environment = var.environment
+      Tier        = "web"
+      Component   = "nginx"
+    }
+  }
+
+  tags = {
+    Name        = "${local.name_prefix}-lt-nginx"
+    Project     = var.project
+    Environment = var.environment
+    Tier        = "web"
+    Component   = "nginx"
+  }
+}
+
+############################
+# Nginx ASG (2 instances across private nginx subnets)
+############################
+
+resource "aws_autoscaling_group" "nginx_asg" {
+  name             = "${local.name_prefix}-asg-nginx"
+  min_size         = 2
+  desired_capacity = 2
+  max_size         = 4
+
+  health_check_type         = "ELB"
+  health_check_grace_period = 300
+
+  vpc_zone_identifier = aws_subnet.private_nginx[*].id
+
+  target_group_arns = [aws_lb_target_group.nginx_tg.arn]
+
+  launch_template {
+    id      = aws_launch_template.nginx_lt.id
+    version = "$Latest"
+  }
+
+  termination_policies = ["OldestInstance"]
+
+  instance_refresh {
+    strategy = "Rolling"
+    preferences {
+      min_healthy_percentage = 50
+      instance_warmup        = 180
+    }
+    triggers = ["launch_template"]
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "nginx"
+    propagate_at_launch = true
+  }
+  tag {
+    key                 = "Project"
+    value               = var.project
+    propagate_at_launch = true
+  }
+  tag {
+    key                 = "Environment"
+    value               = var.environment
+    propagate_at_launch = true
+  }
+  tag {
+    key                 = "Tier"
+    value               = "web"
+    propagate_at_launch = true
+  }
+  tag {
+    key                 = "Component"
+    value               = "nginx"
+    propagate_at_launch = true
+  }
+}
+
+
+############################
+# Route53 Public Record -> Public ALB (Alias)
+############################
+
+data "aws_route53_zone" "public" {
+  name         = var.public_zone_name
+  private_zone = false
+}
+
+resource "aws_route53_record" "public_alb_alias" {
+  zone_id = data.aws_route53_zone.public.zone_id
+  name    = var.public_record_name
+  type    = "A"
+
+  alias {
+    name                   = aws_lb.alb_public_web.dns_name
+    zone_id                = aws_lb.alb_public_web.zone_id
+    evaluate_target_health = true
+  }
+}
+
+
+
+resource "aws_acm_certificate" "public" {
+  domain_name       = var.public_tls_domain
+  validation_method = "DNS"
+
+  tags = {
+    Project     = var.project
+    Environment = var.environment
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "aws_route53_record" "acm_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.public.domain_validation_options : dvo.domain_name => {
+      name  = dvo.resource_record_name
+      type  = dvo.resource_record_type
+      value = dvo.resource_record_value
+    }
+  }
+
+  zone_id = data.aws_route53_zone.public.zone_id
+  name    = each.value.name
+  type    = each.value.type
+  records = [each.value.value]
+  ttl     = 10
+}
+
+resource "aws_acm_certificate_validation" "public" {
+  certificate_arn         = aws_acm_certificate.public.arn
+  validation_record_fqdns = [for r in aws_route53_record.acm_validation : r.fqdn]
 }

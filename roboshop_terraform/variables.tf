@@ -94,7 +94,7 @@ variable "db_tier_ansadmin_public_key" {
 #App Tier Variables
 ############################
 variable "app_tier_ami_id" {
-  type        = string
+  type        = map(string)
   description = "AMI ID for app tier microservices (golden AMI preferred)"
 }
 
@@ -138,3 +138,44 @@ variable "app_health_check_path" {
   description = "Health check path for app services"
 
 }
+
+
+#########################
+#Nginx Variables Details
+#######################
+variable "public_zone_name" {
+  type        = string
+  description = "Public hosted zone name (example: optimusprime.uno)"
+}
+
+variable "public_record_name" {
+  type        = string
+  description = "Public record name to point to ALB (example: dev.optimusprime.uno or www)"
+}
+
+variable "nginx_ansadmin_public_key" {
+  type        = string
+  description = "ansadmin public key to inject into nginx instances"
+}
+
+variable "nginx_ami_id" {
+  type        = string
+  description = "Nginx AMI ID"
+  
+}
+
+variable "nginx_instance_type" {
+  type    = string
+}
+
+variable "nginx_root_volume_size" {
+  type    = number
+
+}
+
+variable "public_tls_domain" {
+  type        = string
+  description = "Domain name for ACM cert, e.g. dev.optimusprime.uno"
+}
+
+

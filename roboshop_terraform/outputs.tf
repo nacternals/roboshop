@@ -188,3 +188,11 @@ output "app_target_groups" {
 output "app_asgs" {
   value = { for k, v in aws_autoscaling_group.app_asg : k => v.name }
 }
+
+output "public_web_alb" {
+  value = {
+    alb_dns_name = aws_lb.alb_public_web.dns_name
+    alb_zone_id  = aws_lb.alb_public_web.zone_id
+    record_fqdn  = aws_route53_record.public_alb_alias.fqdn
+  }
+}
